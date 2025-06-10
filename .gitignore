@@ -1,3 +1,10 @@
+# ignore resources images (for license safety)
+resources/*.png
+resources/*.jpg
+resources/*.jpeg
+resources/*.webp
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]

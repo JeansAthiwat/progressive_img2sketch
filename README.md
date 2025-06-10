@@ -15,3 +15,17 @@ find some LOD model/algorithm to extract the line drawing sketch
  |
 \/
 create an iterative interface that can gradually fill in the details from primitive shape and then iterate through the extracted each LOD level
+
+# Getting started with TripoSR
+
+```conda create -n athiwat_TripoSR  python=3.10```
+
+```conda activate athiwat_TripoSR```
+
+```pip3 install torch torchvision torchaudio```
+
+```python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"```
+
+```pip install --upgrade setuptools```
+```pip install git+https://github.com/tatsy/torchmcubes.git@3aef8afa5f21b113afc4f4ea148baee850cbd472``` (install torchmcubes directly to prevent error?)
+```pip install -r requirements.txt```
