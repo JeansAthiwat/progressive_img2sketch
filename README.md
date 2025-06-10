@@ -21,11 +21,16 @@ create an iterative interface that can gradually fill in the details from primit
 ```conda create -n athiwat_TripoSR  python=3.10```
 
 ```conda activate athiwat_TripoSR```
-
 ```pip3 install torch torchvision torchaudio```
 
 ```python -c "import torch; print(torch.__version__); print(torch.cuda.is_available())"```
-
+```conda install -c nvidia cuda-toolkit=12.6```
+```conda install -c conda-forge gcc gxx```
+```pip install git+https://github.com/tatsy/torchmcubes.git@3aef8afa5f21b113afc4f4ea148baee850cbd472```
 ```pip install --upgrade setuptools```
-```pip install git+https://github.com/tatsy/torchmcubes.git@3aef8afa5f21b113afc4f4ea148baee850cbd472``` (install torchmcubes directly to prevent error?)
+
+
+
+
+
 ```pip install -r requirements.txt```
