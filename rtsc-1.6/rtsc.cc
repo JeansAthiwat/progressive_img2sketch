@@ -2005,6 +2005,253 @@ void dump_image(int dummy = 0)
 	printf("Done.\n\n");
 }
 
+// Helper function to compute 90th percentile of positive values
+float compute_90th_percentile(const vector<float> &values) {
+	vector<float> positive_values;
+	for (float val : values) {
+		if (val > 0) positive_values.push_back(val);
+	}
+	if (positive_values.empty()) return 1.0f;
+	
+	sort(positive_values.begin(), positive_values.end());
+	int idx = int(0.9f * positive_values.size());
+	if (idx >= positive_values.size()) idx = positive_values.size() - 1;
+	return positive_values[idx];
+}
+
+// Helper function to save feature data as 16-bit PNG
+void save_feature_image(const vector<float> &data, float max_val, 
+                       const char* filepath, int width, int height) {
+	// Convert to 16-bit data normalized by max_val
+	vector<unsigned short> img_data(width * height);
+	for (int i = 0; i < width * height; i++) {
+		float normalized = (data.size() > i) ? data[i] / max_val : 0.0f;
+		normalized = max(0.0f, min(1.0f, normalized));
+		img_data[i] = (unsigned short)(normalized * 65535.0f);
+	}
+	
+	// For now, save as PPM (16-bit PNG would require libpng)
+	// The Python code expects 16-bit, so we'll save raw data
+	FILE *f = fopen(filepath, "wb");
+	if (f) {
+		fprintf(f, "P5\n%d %d\n65535\n", width, height);
+		for (int i = 0; i < width * height; i++) {
+			unsigned short val = img_data[i];
+			// Write big-endian 16-bit
+			fputc((val >> 8) & 0xFF, f);
+			fputc(val & 0xFF, f);
+		}
+		fclose(f);
+		printf("Saved feature image %s\n", filepath);
+	}
+}
+
+// Save the images with correct params to a PPM file
+void get_neural_contour_images(int dummy = 0)
+{
+	// Extract base filename from xffilename and create output directory
+	char output_dir[1024];
+	if (xffilename) {
+		// Extract base filename (without path and extension)
+		const char *basename = strrchr(xffilename, '/');
+		if (!basename) basename = strrchr(xffilename, '\\');
+		if (!basename) basename = xffilename;
+		else basename++; // Skip the path separator
+		
+		strcpy(output_dir, basename);
+		char *dot = strrchr(output_dir, '.');
+		if (dot) *dot = '\0'; // Remove extension
+	} else {
+		strcpy(output_dir, "output");
+	}
+	
+	// Create output directory
+	char mkdir_cmd[1024];
+	sprintf(mkdir_cmd, "mkdir -p %s", output_dir);
+	system(mkdir_cmd);
+	
+	// Save original parameters
+	float orig_sug_thresh = sug_thresh;
+	float orig_rv_thresh = rv_thresh;
+	float orig_ar_thresh = ar_thresh;
+	int orig_draw_sc = draw_sc;
+	int orig_draw_ridges = draw_ridges;
+	int orig_draw_valleys = draw_valleys;
+	int orig_draw_apparent = draw_apparent;
+	int orig_draw_c = draw_c;
+	int orig_draw_extsil = draw_extsil;
+	int orig_color_style = color_style;
+	int orig_lighting_style = lighting_style;
+	float orig_currsmooth = currsmooth;
+	
+	// Helper function to save current viewport as PNG
+	auto save_image = [&](const char* filename) {
+		GLUI_Master.auto_set_viewport();
+		GLint V[4];
+		glGetIntegerv(GL_VIEWPORT, V);
+		GLint width = V[2], height = V[3];
+		char *buf = new char[width*height*3];
+		glPixelStorei(GL_PACK_ALIGNMENT, 1);
+		glReadPixels(V[0], V[1], width, height, GL_RGB, GL_UNSIGNED_BYTE, buf);
+
+		// Flip top-to-bottom
+		for (int i = 0; i < height/2; i++) {
+			char *row1 = buf + 3 * width * i;
+			char *row2 = buf + 3 * width * (height - 1 - i);
+			for (int j = 0; j < 3 * width; j++)
+				swap(row1[j], row2[j]);
+		}
+
+		char filepath[1024];
+		sprintf(filepath, "%s/%s", output_dir, filename);
+		FILE *f = fopen(filepath, "wb");
+		if (f) {
+			fprintf(f, "P6\n%d %d\n255\n", width, height);
+			fwrite(buf, width*height*3, 1, f);
+			fclose(f);
+			printf("Saved %s\n", filepath);
+		}
+		delete [] buf;
+		need_redraw();
+		glutPostRedisplay();
+		// Force a redraw to update the display
+		redraw();
+	};
+	
+	// Compute per-view data for features
+	static vector<float> ndotv, kr;
+	static vector<float> sctest_num, sctest_den, shtest_num;
+	static vector<float> q1, Dt1q1;
+	static vector<vec2> t1;
+	compute_perview(ndotv, kr, sctest_num, sctest_den, shtest_num,
+		q1, t1, Dt1q1, false);
+	
+	// Get viewport dimensions for feature images
+	GLUI_Master.auto_set_viewport();
+	GLint V[4];
+	glGetIntegerv(GL_VIEWPORT, V);
+	int img_width = V[2], img_height = V[3];
+	
+	// Reset all drawing flags
+	draw_sc = 0; draw_ridges = 0; draw_valleys = 0; draw_apparent = 0;
+	draw_c = 0; draw_extsil = 0;
+	color_style = COLOR_WHITE;
+	lighting_style = LIGHTING_LAMBERTIAN;
+	
+	printf("Generating neural contour images...\n");
+	
+	// 1. Suggestive Contours
+	sug_thresh = 0;
+	draw_sc = 1;
+	save_image("suggestive_contour.ppm");
+	draw_sc = 0;
+	
+	// 2. Normal dot view (ndotv)
+	save_feature_image(ndotv, 1.0f, 
+		(string(output_dir) + "/nv.ppm").c_str(), img_width, img_height);
+	
+	// 3. Suggestive contour features (dwkr)
+	float sc_max = compute_90th_percentile(sctest_num);
+	save_feature_image(sctest_num, sc_max,
+		(string(output_dir) + "/suggestive_contour_feature.ppm").c_str(), 
+		img_width, img_height);
+	
+	// Save suggestive contour info
+	char sc_info_path[1024];
+	sprintf(sc_info_path, "%s/suggestive_contour_info.txt", output_dir);
+	FILE *sc_info = fopen(sc_info_path, "w");
+	if (sc_info) {
+		fprintf(sc_info, "%f %f\n", sc_max, feature_size);
+		fclose(sc_info);
+		printf("Saved %s\n", sc_info_path);
+	}
+	
+	// 4. Ridges
+	rv_thresh = 0;
+	draw_ridges = 1;
+	save_image("ridge.ppm");
+	draw_ridges = 0;
+	
+	// 5. Ridge features (k1 - positive principal curvature)
+	float ridge_max = compute_90th_percentile(themesh->curv1);
+	save_feature_image(themesh->curv1, ridge_max,
+		(string(output_dir) + "/ridge_feature.ppm").c_str(),
+		img_width, img_height);
+	
+	// Save ridge info
+	char ridge_info_path[1024];
+	sprintf(ridge_info_path, "%s/ridge_info.txt", output_dir);
+	FILE *ridge_info = fopen(ridge_info_path, "w");
+	if (ridge_info) {
+		fprintf(ridge_info, "%f %f\n", ridge_max, feature_size);
+		fclose(ridge_info);
+		printf("Saved %s\n", ridge_info_path);
+	}
+	
+	// 6. Valleys
+	rv_thresh = 0;
+	draw_valleys = 1;
+	save_image("valley.ppm");
+	draw_valleys = 0;
+	
+	// 7. Valley features (negative k1)
+	vector<float> neg_curv1;
+	for (float val : themesh->curv1) {
+		neg_curv1.push_back(-val);
+	}
+	float valley_max = compute_90th_percentile(neg_curv1);
+	save_feature_image(neg_curv1, valley_max,
+		(string(output_dir) + "/valley_feature.ppm").c_str(),
+		img_width, img_height);
+	
+	// Save valley info
+	char valley_info_path[1024];
+	sprintf(valley_info_path, "%s/valley_info.txt", output_dir);
+	FILE *valley_info = fopen(valley_info_path, "w");
+	if (valley_info) {
+		fprintf(valley_info, "%f %f\n", valley_max, feature_size);
+		fclose(valley_info);
+		printf("Saved %s\n", valley_info_path);
+	}
+	
+	// 8. Apparent Ridges
+	ar_thresh = 0;
+	draw_apparent = 1;
+	save_image("apparent_ridge.ppm");
+	draw_apparent = 0;
+	
+	// 9. Apparent ridge features (kt - view-dependent curvature)
+	float ar_max = compute_90th_percentile(q1);
+	save_feature_image(q1, ar_max,
+		(string(output_dir) + "/apparent_ridge_feature.ppm").c_str(),
+		img_width, img_height);
+	
+	// Save apparent ridge info
+	char ar_info_path[1024];
+	sprintf(ar_info_path, "%s/apparent_ridge_info.txt", output_dir);
+	FILE *ar_info = fopen(ar_info_path, "w");
+	if (ar_info) {
+		fprintf(ar_info, "%f %f\n", ar_max, feature_size);
+		fclose(ar_info);
+		printf("Saved %s\n", ar_info_path);
+	}
+	
+	// Restore original parameters
+	sug_thresh = orig_sug_thresh;
+	rv_thresh = orig_rv_thresh;
+	ar_thresh = orig_ar_thresh;
+	draw_sc = orig_draw_sc;
+	draw_ridges = orig_draw_ridges;
+	draw_valleys = orig_draw_valleys;
+	draw_apparent = orig_draw_apparent;
+	draw_c = orig_draw_c;
+	draw_extsil = orig_draw_extsil;
+	color_style = orig_color_style;
+	lighting_style = orig_lighting_style;
+	currsmooth = orig_currsmooth;
+	
+	printf("Neural contour images generation complete!\n");
+}
 
 // Compute a "feature size" for the mesh: computed as 1% of
 // the reciprocal of the 10-th percentile curvature
@@ -2444,7 +2691,7 @@ int main(int argc, char *argv[])
 	glui->add_button_to_panel(g, "Smooth DCurv", 0, filter_dcurv);
 	glui->add_button_to_panel(g, "Subdivide Mesh", 0, subdivide_mesh);
 	glui->add_button_to_panel(g, "Screencap", 0, dump_image);
-	glui->add_button_to_panel(g, "NeuralContourPipe", 0, dump_image);
+	glui->add_button_to_panel(g, "Neural Contour Pipe", 0, get_neural_contour_images);
 	glui->add_button_to_panel(g, "Exit", 0, exit);
 
 	// Go through command-line arguments and do what they say.
