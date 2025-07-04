@@ -2236,27 +2236,6 @@ void get_neural_contour_images(int dummy = 0)
 		printf("Saved %s\n", ar_info_path);
 	}
 	
-	// 10. View-based Shape Representations - Smooth renderings (1-5)
-	color_style = COLOR_WHITE;
-	lighting_style = LIGHTING_LAMBERTIAN;
-	for (int smooth_val = 1; smooth_val <= 5; smooth_val++) {
-		currsmooth = smooth_val * themesh->feature_size();
-		filter_normals();
-		
-		char smooth_filename[64];
-		sprintf(smooth_filename, "smooth_%d.ppm", smooth_val);
-		save_image(smooth_filename);
-	}
-	
-	// 11. Base rendering (contours and creases) - if needed
-	draw_c = 1;
-	draw_extsil = 1;
-	save_image("base.ppm");
-	draw_c = 0;
-	draw_extsil = 0;
-	
-	// Note: depth.ppm not implemented yet - would require depth buffer rendering
-	
 	// Restore original parameters
 	sug_thresh = orig_sug_thresh;
 	rv_thresh = orig_rv_thresh;
