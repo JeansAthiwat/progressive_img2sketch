@@ -1,5 +1,7 @@
-# Ignore trimesh2 folders
-trimesh2/
+# Ignore pyopengl and pyglet
+pyopengl/
+pyglet/
+
 # Ignore build directories
 .vscode/
 
