@@ -1,3 +1,6 @@
+#resources
+resources/LOD_images
+
 # Ignore pyopengl and pyglet
 pyopengl/
 pyglet/
