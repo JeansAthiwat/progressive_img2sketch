@@ -8,21 +8,27 @@ from math import atan2, sqrt
 
 
 # Define the base path
-base_path = "/home/jeans/progressive_img2sketch/resources/LOD_data_50"
+base_path = "C:/aaaJAIST/progressive_img2sketch/resources/LOD_data_50"
 # processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_model_512_60_angle_00"
 # processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_60_30_test"
 # processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_60_00"
 # processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_num1_angle90_depth_map"
-processed_base_path = "/home/jeans/progressive_img2sketch/resources/LOD_topdown_imgs"
+processed_image_base_path = "C:/aaaJAIST/progressive_img2sketch/resources/LOD_orbit_images"
+processed_freestyle_base_path = "C:/aaaJAIST/progressive_img2sketch/resources/LOD_orbit_freestyles"
 
+azimuth_step = 30
+elevations = [0, 15, 30]  # in degrees
 
-def setup_render(output_path):
-    bpy.context.scene.render.engine = "CYCLES"
+def setup_render(output_path, bg_color=(1, 1, 1)):
+    bpy.context.scene.render.engine =  "BLENDER_WORKBENCH" # "CYCLES" #
     bpy.context.scene.render.filepath = output_path
     bpy.context.scene.render.resolution_x = 512
     bpy.context.scene.render.resolution_y = 512
     bpy.context.scene.render.image_settings.file_format = "PNG"
-    bpy.context.scene.render.film_transparent = True  # Enable transparent background
+    if bg_color is not None:
+        bpy.context.scene.world.color = bg_color
+    else:
+        bpy.context.scene.render.film_transparent = True  # Enable transparent background
 
     # Set world background to pure white
     if not bpy.data.worlds:
@@ -70,8 +76,7 @@ def setup_lighting():
     sun_light.data.energy = 10.0
 
 
-# Set the camera rotation and render
-def render_views(output_folder, model_name):
+def render_image_views(output_folder, model_name):
     # Ensure there is a camera in the scene, if not create one
     if "Camera" not in bpy.data.objects:
         bpy.ops.object.camera_add()
@@ -80,146 +85,181 @@ def render_views(output_folder, model_name):
     else:
         camera = bpy.data.objects["Camera"]
 
-    # Calculate the bounding box size of the object to determine camera distance
+    # Compute bounding‐box size to set camera distance
     bpy.context.view_layer.update()
-    objs = [obj for obj in bpy.context.scene.objects if obj.type == "MESH"]
-    if objs:
-        bpy.ops.object.select_all(action="DESELECT")
-        objs[0].select_set(True)
-        bpy.context.view_layer.objects.active = objs[0]
-        bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
-        dimensions = objs[0].dimensions
-        max_dimension = max(dimensions)
-        # Automatically calculate the camera distance to fit the entire object in view
-        distance_factor = (
-            2.0  # Adjust this factor to control how much space is around the object
-        )
-        distance = distance_factor * max_dimension
+    objs = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    if not objs:
+        return
+    obj = objs[0]
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
+    max_dim = max(obj.dimensions)
+    distance_factor = 2.0
+    distance = distance_factor * max_dim
 
-        # Set the camera to look at the object
-        # camera.location = (distance, distance, distance) # Original camera position setting参数
-        camera.location = (0, 0, distance)  # Camera placed directly above the object
-        direction = objs[0].location - camera.location
-        rot_quat = direction.to_track_quat("-Z", "Y")
-        camera.rotation_euler = rot_quat.to_euler()
-
-    # Enable mist for depth map rendering
+    # Prepare compositor for RGB (you can keep your mist/depth nodes if needed)
     bpy.context.scene.use_nodes = True
     tree = bpy.context.scene.node_tree
-    links = tree.links
-
-    # Clear existing nodes
-    for node in tree.nodes:
-        tree.nodes.remove(node)
-
-    rl = tree.nodes.new(type="CompositorNodeRLayers")
+    for n in list(tree.nodes):
+        tree.nodes.remove(n)
+    rl        = tree.nodes.new(type="CompositorNodeRLayers")
     composite = tree.nodes.new(type="CompositorNodeComposite")
     composite.location = 200, 0
+    links = tree.links
 
-    # Set up a normalization node to enhance depth map contrast
-    normalize = tree.nodes.new(type="CompositorNodeNormalize")
-    normalize.location = 100, 0
-    links.new(rl.outputs["Mist"], normalize.inputs[0])
-    links.new(normalize.outputs[0], composite.inputs["Image"])
+    # We'll be rendering pure Image outputs
+    links.new(rl.outputs["Image"], composite.inputs["Image"])
 
-    # # Set up a brightness/contrast node to further enhance depth map contrast
-    # bright_contrast = tree.nodes.new(type="CompositorNodeBrightContrast")
-    # bright_contrast.inputs['Bright'].default_value = -5.0
-    # bright_contrast.inputs['Contrast'].default_value = 5.0  # Increase contrast further
-    # bright_contrast.location = 300, 0
-    # links.new(normalize.outputs[0], bright_contrast.inputs[0])
-    # links.new(bright_contrast.outputs[0], composite.inputs['Image'])
+    # Orbit parameters
+    azimuths   = range(0, 360, azimuth_step)
 
-    # # Set up a color ramp node to manually adjust the depth gradient
-    # color_ramp = tree.nodes.new(type="CompositorNodeValToRGB")
-    # color_ramp.location = 500, 0
-    # color_ramp.color_ramp.interpolation = 'CONSTANT'
-    # color_ramp.color_ramp.elements[0].position = 0.2  # Adjust positions to control contrast
-    # color_ramp.color_ramp.elements[1].position = 0.8
-    # links.new(bright_contrast.outputs[0], color_ramp.inputs[0])
-    # links.new(color_ramp.outputs[0], composite.inputs['Image'])
+    for az in azimuths:
+        for el in elevations:
+            # compute spherical→cartesian camera pos
+            rad_az = math.radians(az)
+            rad_el = math.radians(el)
+            x = distance * math.cos(rad_az) * math.cos(rad_el)
+            y = distance * math.sin(rad_az) * math.cos(rad_el)
+            z = distance * math.sin(rad_el)
+            camera.location = (x, y, z)
 
-    # Define camera angles
-    # num_views = 16
-    # num_views = 60 # Capture 60 images from different angles
-    num_views = 1  # Capture only one image from the top view
-    # elevation_angle = math.radians(0)  # Set elevation angle, e.g., 30 degrees
-    elevation_angle = math.radians(
-        90
-    )  # Set elevation angle to 90 degrees for top-down view
-    for i in range(num_views):
-        angle = 2 * math.pi * i / num_views
-        # camera.location.x = distance * math.cos(angle)
-        # camera.location.y = distance * math.sin(angle)
-        # camera.location.z = distance * 0.8  # Adjusted to ensure the object is fully in view
+            # point the camera at the object center
+            direction = obj.location - camera.location
+            rot_quat = direction.to_track_quat('-Z', 'Y')
+            camera.rotation_euler = rot_quat.to_euler()
 
-        # Adjust the camera’s height and distance based on elevation angle
-        camera.location.x = distance * math.cos(angle) * math.cos(elevation_angle)
-        camera.location.y = distance * math.sin(angle) * math.cos(elevation_angle)
-        camera.location.z = distance * math.sin(elevation_angle)  # 调整z轴的高度
+            bpy.context.view_layer.update()
 
-        direction = objs[0].location - camera.location
-        rot_quat = direction.to_track_quat("-Z", "Y")
-        camera.rotation_euler = rot_quat.to_euler()
-        bpy.context.view_layer.update()
+            # setup render
+            output_path = os.path.join(
+                output_folder,
+                f"{model_name}_az{az:03d}_el{el:02d}.png"
+            )
+            setup_render(output_path, bg_color=None)  
 
-        # Calculate azimuth and elevation
-        azimuth = angle
-        horizontal_distance = sqrt(camera.location.x**2 + camera.location.y**2)
-        elevation = atan2(camera.location.z, horizontal_distance)
+            # render
+            bpy.ops.render.render(write_still=True)
 
-        # Calculate Rotation (R), Translation (T), Focal length (f), and Principal point (c)
-        R = [list(row) for row in camera.matrix_world.to_quaternion().to_matrix()]
-        T = list(camera.location)
-        f = camera.data.lens
-        c = (camera.data.shift_x, camera.data.shift_y)
+def render_freestyle_views(output_folder, model_name):
+    import os, math, bpy
 
-        # # Save the current camera angle and parameters to a JSON file
-        # angle_info = {
-        #     "azimuth": azimuth,
-        #     "elevation": elevation,
-        #     "R": R,
-        #     "T": T,
-        #     "f": f,
-        #     "c": c
-        # }
-        # angles_path = os.path.join(output_folder, f"{model_name}_view_{i:02d}_camera_angle.json")
-        # with open(angles_path, 'w') as f:
-        #     json.dump(angle_info, f)
+    scene      = bpy.context.scene
+    view_layer = scene.view_layers["ViewLayer"]
 
-        # Render RGB image
-        output_path = os.path.join(output_folder, f"{model_name}_view_{i:02d}.png")
-        setup_render(output_path)
-        links.new(rl.outputs["Image"], composite.inputs["Image"])
-        bpy.ops.render.render(write_still=True)
+    # 1) Render & Freestyle settings
+    scene.render.engine            = 'CYCLES'
+    scene.render.use_freestyle     = True
+    scene.render.line_thickness_mode = 'ABSOLUTE'
+    scene.render.line_thickness      = 0.4
 
-        # # Render Depth Map
-        # bpy.context.scene.view_layers[0].use_pass_mist = True
-        # bpy.context.scene.world.mist_settings.falloff = 'LINEAR'
-        # bpy.context.scene.world.mist_settings.start = 0.1 * distance
-        # bpy.context.scene.world.mist_settings.depth = distance * 1.5
-        # output_path_depth = os.path.join(output_folder, f"{model_name}_view_{i:02d}_depth.png")
-        # setup_render(output_path_depth)
-        # links.new(rl.outputs['Mist'], composite.inputs['Image'])
-        # bpy.ops.render.render(write_still=True)
+    view_layer.use_freestyle = True
+    fs = view_layer.freestyle_settings
+    fs.as_render_pass     = True              # output lines as their own pass
+    fs.use_view_map_cache = True              # speed up repeated renders
+    fs.crease_angle       = math.radians(179) # global crease cutoff
+
+    # 2) Clear any existing LineSets, then add one that selects silhouettes, borders & creases
+    for ls in list(fs.linesets):
+        fs.linesets.remove(ls)
+    ls = fs.linesets.new("LineSet")
+    ls.select_silhouette = True
+    ls.select_border     = True
+    ls.select_crease     = True
+    ls.select_edge_mark  = False
+
+    # 3) White background
+    if not bpy.data.worlds:
+        bpy.data.worlds.new("World")
+    scene.world = bpy.data.worlds["World"]
+    scene.world.use_nodes = True
+    bg = scene.world.node_tree.nodes["Background"]
+    bg.inputs[0].default_value = (1, 1, 1, 1)
+
+    # 4) Ensure Camera exists
+    if "Camera" not in bpy.data.objects:
+        bpy.ops.object.camera_add()
+    camera = bpy.data.objects["Camera"]
+    scene.camera = camera
+
+    # 5) Build a compositor that outputs **only** the Freestyle pass
+    scene.use_nodes = True
+    tree = scene.node_tree
+    # clear nodes
+    for n in list(tree.nodes):
+        tree.nodes.remove(n)
+    rl        = tree.nodes.new(type="CompositorNodeRLayers")
+    composite = tree.nodes.new(type="CompositorNodeComposite")
+    composite.location = (200, 0)
+    # connect Freestyle pass → composite
+    tree.links.new(rl.outputs["Freestyle"], composite.inputs["Image"])
+
+    # 6) Recenter mesh & compute orbit radius
+    bpy.context.view_layer.update()
+    meshes = [o for o in scene.objects if o.type == "MESH"]
+    if not meshes:
+        return
+    obj = meshes[0]
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
+    obj.location = (0,0,0)
+    max_dim = max(obj.dimensions)
+    radius  = max_dim * 2.0
+
+    # 7) Orbit loop (30° steps, elevations 0°,15°,30°)
+    for az in range(0, 360, azimuth_step):
+        for el in elevations:
+            rad_az = math.radians(az)
+            rad_el = math.radians(el)
+            x = radius * math.cos(rad_az) * math.cos(rad_el)
+            y = radius * math.sin(rad_az) * math.cos(rad_el)
+            z = radius * math.sin(rad_el)
+            camera.location = (x,y,z)
+            # aim at origin
+            vec = obj.location - camera.location
+            camera.rotation_euler = vec.to_track_quat('-Z','Y').to_euler()
+            bpy.context.view_layer.update()
+
+            # 8) Render
+            out_path = os.path.join(
+                output_folder,
+                f"{model_name}_az{az:03d}_el{el:02d}.png"
+            )
+            setup_render(out_path, bg_color=(1,1,1))
+            bpy.ops.render.render(write_still=True)
 
 
+
+    
 # Iterate over all subdirectories and render models
 for folder in os.listdir(base_path):
-    if folder.isdigit() and 0 <= int(folder) <= 29:
+    if folder.isdigit() and 0 <= int(folder) <= 3:
         folder_path = os.path.join(base_path, folder)
         if os.path.isdir(folder_path):
-            for lod in range(1, 5):
+            for lod in range(1, 4):
                 obj_file_path = os.path.join(folder_path, f"lod{lod}.obj")
                 if os.path.exists(obj_file_path):
                     clear_scene()
                     import_model(obj_file_path)
                     setup_lighting()
-                    output_folder = os.path.join(
-                        processed_base_path, folder, f"lod{lod}"
+                    output_image_folder = os.path.join(
+                        processed_image_base_path, folder, f"lod{lod}"
                     )
-                    if not os.path.exists(output_folder):
-                        os.makedirs(output_folder)
-                    render_views(output_folder, f"lod{lod}")
+                    if not os.path.exists(output_image_folder):
+                        os.makedirs(output_image_folder)
+                    render_image_views(output_image_folder, f"lod{lod}")
+                    
+                    # Render freestyle images
+                    output_freestyle_folder = os.path.join(
+                        processed_freestyle_base_path, folder, f"lod{lod}"
+                    )
+                    if not os.path.exists(output_freestyle_folder):
+                        os.makedirs(output_freestyle_folder)
+                    render_freestyle_views(output_freestyle_folder, f"lod{lod}")
+                    
+                    
 
 print("Rendering completed for all models.")

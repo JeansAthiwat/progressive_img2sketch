@@ -1,6 +1,7 @@
 #resources
 resources/LOD_images
 resources/LOD_data_50
+resources/LOD_topdown_imgs
 
 # Ignore pyopengl and pyglet
 pyopengl/
