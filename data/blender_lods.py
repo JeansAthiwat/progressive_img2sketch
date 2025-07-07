@@ -25,10 +25,10 @@ def setup_render(output_path, bg_color=(1, 1, 1)):
     bpy.context.scene.render.resolution_x = 512
     bpy.context.scene.render.resolution_y = 512
     bpy.context.scene.render.image_settings.file_format = "PNG"
-    if bg_color is not None:
-        bpy.context.scene.world.color = bg_color
-    else:
-        bpy.context.scene.render.film_transparent = True  # Enable transparent background
+    # if bg_color is not None:
+    #     bpy.context.scene.world.color = bg_color
+    # else:
+    #     bpy.context.scene.render.film_transparent = True  # Enable transparent background
 
     # Set world background to pure white
     if not bpy.data.worlds:
@@ -158,7 +158,7 @@ def render_freestyle_views(output_folder, model_name):
     fs = view_layer.freestyle_settings
     fs.as_render_pass     = True              # output lines as their own pass
     fs.use_view_map_cache = True              # speed up repeated renders
-    fs.crease_angle       = math.radians(179) # global crease cutoff
+    fs.crease_angle       = math.radians(178) # global crease cutoff
 
     # 2) Clear any existing LineSets, then add one that selects silhouettes, borders & creases
     for ls in list(fs.linesets):
@@ -232,6 +232,90 @@ def render_freestyle_views(output_folder, model_name):
             bpy.ops.render.render(write_still=True)
 
 
+def render_both_views(output_img_folder, output_fs_folder, model_name):
+    import bpy, os, math
+
+    scene      = bpy.context.scene
+    view_layer = scene.view_layers["ViewLayer"]
+
+    # 1) Ensure Camera exists
+    if "Camera" not in bpy.data.objects:
+        bpy.ops.object.camera_add()
+    cam = bpy.data.objects["Camera"]
+    scene.camera = cam
+
+    # 2) Center mesh & compute orbit radius
+    bpy.context.view_layer.update()
+    meshes = [o for o in scene.objects if o.type=="MESH"]
+    if not meshes: return
+    obj = meshes[0]
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
+    obj.location = (0,0,0)
+    radius = max(obj.dimensions) * 2.0
+
+    # 3) Prepare Freestyle settings (they’ll be flipped on/off)
+    scene.render.line_thickness_mode = 'ABSOLUTE'
+    scene.render.line_thickness      = 0.8
+    view_layer.use_freestyle         = True
+    fs = view_layer.freestyle_settings
+    fs.as_render_pass     = True
+    fs.use_view_map_cache = True
+    fs.crease_angle       = math.radians(178)
+    # Clear/define a single LineSet
+    for ls in list(fs.linesets):
+        fs.linesets.remove(ls)
+    ls = fs.linesets.new("LineSet")
+    ls.select_silhouette = True
+    ls.select_border     = True
+    ls.select_crease     = True
+    ls.select_edge_mark  = False
+
+    # 4) Utility to setup compositor for a chosen pass
+    def setup_compositor(pass_name):
+        scene.use_nodes = True
+        tree = scene.node_tree
+        # wipe old nodes
+        for n in list(tree.nodes):
+            tree.nodes.remove(n)
+        rl        = tree.nodes.new(type="CompositorNodeRLayers")
+        comp     = tree.nodes.new(type="CompositorNodeComposite")
+        comp.location = 200,0
+        # link the desired pass into the composite
+        tree.links.new(rl.outputs[pass_name], comp.inputs["Image"])
+
+    # 5) Orbit loop: render RGB then Freestyle
+    for az in range(0, 360, azimuth_step):
+        for el in elevations:
+            # position camera
+            rad_az = math.radians(az)
+            rad_el = math.radians(el)
+            x = radius * math.cos(rad_az) * math.cos(rad_el)
+            y = radius * math.sin(rad_az) * math.cos(rad_el)
+            z = radius * math.sin(rad_el)
+            cam.location = (x, y, z)
+            # aim at center
+            vec = obj.location - cam.location
+            cam.rotation_euler = vec.to_track_quat('-Z','Y').to_euler()
+            bpy.context.view_layer.update()
+
+            # --- RGB pass ---
+            scene.render.use_freestyle = False
+            setup_compositor("Image")
+            scene.render.filepath = os.path.join(
+                output_img_folder, f"{model_name}_az{az:03d}_el{el:02d}.png"
+            )
+            bpy.ops.render.render(write_still=True)
+
+            # --- Freestyle pass ---
+            scene.render.use_freestyle = True
+            setup_compositor("Freestyle")
+            scene.render.filepath = os.path.join(
+                output_fs_folder, f"{model_name}_az{az:03d}_el{el:02d}.png"
+            )
+            bpy.ops.render.render(write_still=True)
 
     
 # Iterate over all subdirectories and render models
@@ -250,16 +334,15 @@ for folder in os.listdir(base_path):
                     )
                     if not os.path.exists(output_image_folder):
                         os.makedirs(output_image_folder)
-                    render_image_views(output_image_folder, f"lod{lod}")
-                    
-                    # Render freestyle images
+
                     output_freestyle_folder = os.path.join(
                         processed_freestyle_base_path, folder, f"lod{lod}"
                     )
                     if not os.path.exists(output_freestyle_folder):
                         os.makedirs(output_freestyle_folder)
-                    render_freestyle_views(output_freestyle_folder, f"lod{lod}")
+                    # render_image_views(output_image_folder, f"lod{lod}")
+                    # render_freestyle_views(output_freestyle_folder, f"lod{lod}")
                     
-                    
+                    render_both_views(output_image_folder, output_freestyle_folder, f"lod{lod}")
 
 print("Rendering completed for all models.")
