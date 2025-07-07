@@ -6,21 +6,33 @@ from math import atan2, sqrt
 
 # from tqdm import tqdm
 
-
+render_engine="BLENDER_WORKBENCH" # "CYCLES" # 
 # Define the base path
-base_path = "C:/aaaJAIST/progressive_img2sketch/resources/LOD_data_50"
+base_path = "/home/athiwat/progressive_img2sketch/resources/LOD_data_50"
 # processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_model_512_60_angle_00"
 # processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_60_30_test"
 # processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_60_00"
 # processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_num1_angle90_depth_map"
-processed_image_base_path = "C:/aaaJAIST/progressive_img2sketch/resources/LOD_orbit_images"
-processed_freestyle_base_path = "C:/aaaJAIST/progressive_img2sketch/resources/LOD_orbit_freestyles"
+processed_image_base_path = f"/home/athiwat/progressive_img2sketch/resources/LOD_orbit_images_{render_engine}"
+processed_freestyle_base_path = f"/home/athiwat/progressive_img2sketch/resources/LOD_orbit_freestyles_{render_engine}"
 
-azimuth_step = 30
+azimuth_step = 15
 elevations = [0, 15, 30]  # in degrees
 
+def enable_gpu_rendering(device_type='CUDA'):
+    if 'cycles' not in bpy.context.preferences.addons:
+        bpy.ops.preferences.addon_enable(module='cycles')
+    bpy.context.scene.render.engine = 'CYCLES'
+    prefs = bpy.context.preferences.addons['cycles'].preferences
+    prefs.compute_device_type = device_type
+    prefs.get_devices()
+    for d in prefs.devices:
+        d.use = True
+    bpy.context.scene.cycles.device = 'GPU'
+
+
 def setup_render(output_path):
-    bpy.context.scene.render.engine =   "CYCLES" # "BLENDER_WORKBENCH" #
+    bpy.context.scene.render.engine = render_engine
     bpy.context.scene.render.filepath = output_path
     bpy.context.scene.render.resolution_x = 512
     bpy.context.scene.render.resolution_y = 512
@@ -142,7 +154,10 @@ def render_image_views(output_folder, model_name):
 
 def render_both_views(output_img_folder, output_fs_folder, model_name):
     scene      = bpy.context.scene
+    if "ViewLayer" not in scene.view_layers:
+        scene.view_layers.new(name="ViewLayer")
     view_layer = scene.view_layers["ViewLayer"]
+
 
     # 1) Ensure Camera exists
     if "Camera" not in bpy.data.objects:
@@ -225,8 +240,98 @@ def render_both_views(output_img_folder, output_fs_folder, model_name):
             )
             bpy.ops.render.render(write_still=True)
 
+def render_freestyle_views(output_folder, model_name):
+    import os, math, bpy
 
-    
+    scene      = bpy.context.scene
+    view_layer = scene.view_layers["ViewLayer"]
+
+    # 1) Render & Freestyle settings
+    scene.render.engine            = 'CYCLES'
+    scene.render.use_freestyle     = True
+    scene.render.line_thickness_mode = 'ABSOLUTE'
+    scene.render.line_thickness      = 0.4
+
+    view_layer.use_freestyle = True
+    fs = view_layer.freestyle_settings
+    fs.as_render_pass     = True              # output lines as their own pass
+    fs.use_view_map_cache = True              # speed up repeated renders
+    fs.crease_angle       = math.radians(178) # global crease cutoff
+
+    # 2) Clear any existing LineSets, then add one that selects silhouettes, borders & creases
+    for ls in list(fs.linesets):
+        fs.linesets.remove(ls)
+    ls = fs.linesets.new("LineSet")
+    ls.select_silhouette = True
+    ls.select_border     = True
+    ls.select_crease     = True
+    ls.select_edge_mark  = False
+
+    # 3) White background
+    if not bpy.data.worlds:
+        bpy.data.worlds.new("World")
+    scene.world = bpy.data.worlds["World"]
+    scene.world.use_nodes = True
+    bg = scene.world.node_tree.nodes["Background"]
+    bg.inputs[0].default_value = (1, 1, 1, 1)
+
+    # 4) Ensure Camera exists
+    if "Camera" not in bpy.data.objects:
+        bpy.ops.object.camera_add()
+    camera = bpy.data.objects["Camera"]
+    scene.camera = camera
+
+    # 5) Build a compositor that outputs **only** the Freestyle pass
+    scene.use_nodes = True
+    tree = scene.node_tree
+    # clear nodes
+    for n in list(tree.nodes):
+        tree.nodes.remove(n)
+    rl        = tree.nodes.new(type="CompositorNodeRLayers")
+    composite = tree.nodes.new(type="CompositorNodeComposite")
+    composite.location = (200, 0)
+    # connect Freestyle pass → composite
+    tree.links.new(rl.outputs["Freestyle"], composite.inputs["Image"])
+
+    # 6) Recenter mesh & compute orbit radius
+    bpy.context.view_layer.update()
+    meshes = [o for o in scene.objects if o.type == "MESH"]
+    if not meshes:
+        return
+    obj = meshes[0]
+    bpy.ops.object.select_all(action="DESELECT")
+    obj.select_set(True)
+    bpy.context.view_layer.objects.active = obj
+    bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
+    obj.location = (0,0,0)
+    max_dim = max(obj.dimensions)
+    radius  = max_dim * 2.0
+
+    # 7) Orbit loop (30° steps, elevations 0°,15°,30°)
+    for az in range(0, 360, azimuth_step):
+        for el in elevations:
+            rad_az = math.radians(az)
+            rad_el = math.radians(el)
+            x = radius * math.cos(rad_az) * math.cos(rad_el)
+            y = radius * math.sin(rad_az) * math.cos(rad_el)
+            z = radius * math.sin(rad_el)
+            camera.location = (x,y,z)
+            # aim at origin
+            vec = obj.location - camera.location
+            camera.rotation_euler = vec.to_track_quat('-Z','Y').to_euler()
+            bpy.context.view_layer.update()
+
+            # 8) Render
+            out_path = os.path.join(
+                output_folder,
+                f"{model_name}_az{az:03d}_el{el:02d}.png"
+            )
+            setup_render(out_path, bg_color=(1,1,1))
+            bpy.ops.render.render(write_still=True)
+
+# Enable GPU rendering
+enable_gpu_rendering('CUDA')
+
 # Iterate over all subdirectories and render models
 for folder in os.listdir(base_path):
     if folder.isdigit() and 0 <= int(folder) <= 50:

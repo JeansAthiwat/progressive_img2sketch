@@ -7,7 +7,7 @@ from PIL import Image
 # import gayporn # Assuming gayporn is a placeholder for the actual module you want to use
 # from ultrakill import war_without_reason # goated game tbh
 
-def extract_canny_edges(image_path, hysteresis_threshold=(100, 200), kernel_size=3):
+def extract_canny_edges(image_path, hysteresis_threshold=(40, 200), kernel_size=3):
     """
     Extracts Canny edges from the given image.
     
@@ -25,10 +25,12 @@ def extract_canny_edges(image_path, hysteresis_threshold=(100, 200), kernel_size
         raise ValueError(f"Image not found at {image_path}")
     
     # Convert to grayscale if the image has an alpha channel (fill transparent channel with black)
-    if image.shape[2] == 4:  # RGBA
+    if image.shape[2] == 4:
         gray_image = cv2.cvtColor(image, cv2.COLOR_RGBA2GRAY)
+        alpha_channel = image[:, :, 3]
+        gray_image[alpha_channel == 0] = 0  # Mask out fully transparent regions
     else:
-        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        raise ValueError("Damn something wong")
     
     # Apply Gaussian blur to reduce noise
     blurred_image = cv2.GaussianBlur(gray_image, (kernel_size, kernel_size), 0)
@@ -36,9 +38,11 @@ def extract_canny_edges(image_path, hysteresis_threshold=(100, 200), kernel_size
     if hysteresis_threshold is not None:
         edges = cv2.Canny(blurred_image, hysteresis_threshold[0], hysteresis_threshold[1])
     else:
-        edges = cv2.Canny(blurred_image, 100, 200) # what if i just stop at non-max suppression?
+        edges = cv2.Canny(blurred_image, 100, 200)
     # Convert edges to binary mask
     binary_mask = np.where(edges > 0, 255, 0).astype(np.uint8)
+    #  inverse the mask to get white edges on black background
+    binary_mask = cv2.bitwise_not(binary_mask)
     
     return binary_mask
 
@@ -56,7 +60,7 @@ def images_to_canny_pipe(input_image_folder, output_canny_folder):
     if not os.path.exists(output_canny_folder):
         os.makedirs(output_canny_folder)
     for scene_number in range(51):  # Assuming scene numbers are from 0 to 50
-        scene_folder = os.path.join(input_image_folder, f"scene_{scene_number:02d}")
+        scene_folder = os.path.join(input_image_folder, f"{scene_number}")
         if not os.path.exists(scene_folder):
             print(f"Scene folder {scene_folder} does not exist. Skipping.")
             continue
@@ -69,7 +73,7 @@ def images_to_canny_pipe(input_image_folder, output_canny_folder):
             for filename in os.listdir(lod_folder):
                 if filename.endswith(".png"):
                     input_image_path = os.path.join(lod_folder, filename)
-                    output_canny_path = os.path.join(output_canny_folder, f"scene_{scene_number:02d}", f"lod{lod}", filename)
+                    output_canny_path = os.path.join(output_canny_folder, f"{scene_number:02d}", f"lod{lod}", filename)
                     
                     # Create output directory if it doesn't exist
                     os.makedirs(os.path.dirname(output_canny_path), exist_ok=True)
@@ -94,8 +98,8 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
         os.makedirs(output_folder)
     
     for scene_number in range(51):  # Assuming scene numbers are from 0 to 50
-        scene_freestyle_folder = os.path.join(freestyle_folder, f"scene_{scene_number:02d}")
-        scene_canny_folder = os.path.join(canny_folder, f"scene_{scene_number:02d}")
+        scene_freestyle_folder = os.path.join(freestyle_folder, f"{scene_number}")
+        scene_canny_folder = os.path.join(canny_folder, f"{scene_number}")
         
         if not os.path.exists(scene_freestyle_folder) or not os.path.exists(scene_canny_folder):
             print(f"Scene {scene_number} folders do not exist. Skipping.")
@@ -131,21 +135,21 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
                     combined_mask = np.maximum(freestyle_image, canny_image)
                     
                     # Save the combined mask
-                    output_path = os.path.join(output_folder, f"scene_{scene_number:02d}", f"lod{lod}", filename)
+                    output_path = os.path.join(output_folder, f"{scene_number}", f"lod{lod}", filename)
                     os.makedirs(os.path.dirname(output_path), exist_ok=True)
                     cv2.imwrite(output_path, combined_mask)
                     print(f"Combined {freestyle_path} and {canny_path} -> {output_path}")
 
 
     
-input_image_folder = "resources/LOD_orbit_images"
+input_image_folder = "resources/LOD_dataset_imgs"
 output_canny_folder = "resources/LOD_canny_images"
-freestyle_folder = "resources/LOD_orbit_freestyle"
+# freestyle_folder = "resources/LOD_orbit_freestyle"
 
-output_folder = "resources/LOD_combined_sketches"
+# output_folder = "resources/LOD_combined_sketches"
 
 # Extract Canny edges from the input images
 images_to_canny_pipe(input_image_folder, output_canny_folder)
 
 # Combine freestyle strokes and Canny edges into a single binary mask
-combine_freestyle_and_canny(freestyle_folder, output_canny_folder, output_folder)
+# combine_freestyle_and_canny(freestyle_folder, output_canny_folder, output_folder)

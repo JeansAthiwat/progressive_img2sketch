@@ -140,5 +140,5 @@ def traverse_and_fix(root_dir):
 
 # Example usage
 # root_directory = "/ssd/du_dataset/mvdfusion/my_dataset_original_test_normal/"
-root_directory = "C:/aaaJAIST/progressive_img2sketch/resources/LOD_data_50"
+root_directory = "/home/athiwat/progressive_img2sketch/resources/LOD_data_50"
 traverse_and_fix(root_directory)
