@@ -4,7 +4,8 @@ import os
 import cv2
 import numpy as np
 from PIL import Image
-import gayporn # Assuming gayporn is a placeholder for the actual module you want to use
+# import gayporn # Assuming gayporn is a placeholder for the actual module you want to use
+# from ultrakill import war_without_reason # goated game tbh
 
 def extract_canny_edges(image_path, hysteresis_threshold=(100, 200), kernel_size=3):
     """
@@ -121,7 +122,7 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
                     freestyle_image = cv2.imread(freestyle_path, cv2.IMREAD_UNCHANGED)
                     canny_image = cv2.imread(canny_path, cv2.IMREAD_UNCHANGED)
                     
-                    # freestyle_image is an rgba image, canny_image is a binary mask
+                    # freestyle_image is an rgba image, canny_image is a binary mask in rgb format
                     if freestyle_image is None or canny_image is None:
                         print(f"Error loading images for {filename}. Skipping.")
                         continue
@@ -129,5 +130,22 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
                     # Combine the two binary masks
                     combined_mask = np.maximum(freestyle_image, canny_image)
                     
-                    # Save
+                    # Save the combined mask
+                    output_path = os.path.join(output_folder, f"scene_{scene_number:02d}", f"lod{lod}", filename)
+                    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+                    cv2.imwrite(output_path, combined_mask)
+                    print(f"Combined {freestyle_path} and {canny_path} -> {output_path}")
+
+
     
+input_image_folder = "resources/LOD_orbit_images"
+output_canny_folder = "resources/LOD_canny_images"
+freestyle_folder = "resources/LOD_orbit_freestyle"
+
+output_folder = "resources/LOD_combined_sketches"
+
+# Extract Canny edges from the input images
+images_to_canny_pipe(input_image_folder, output_canny_folder)
+
+# Combine freestyle strokes and Canny edges into a single binary mask
+combine_freestyle_and_canny(freestyle_folder, output_canny_folder, output_folder)
