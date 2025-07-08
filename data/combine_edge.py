@@ -73,7 +73,7 @@ def images_to_canny_pipe(input_image_folder, output_canny_folder):
             for filename in os.listdir(lod_folder):
                 if filename.endswith(".png"):
                     input_image_path = os.path.join(lod_folder, filename)
-                    output_canny_path = os.path.join(output_canny_folder, f"{scene_number:02d}", f"lod{lod}", filename)
+                    output_canny_path = os.path.join(output_canny_folder, f"{scene_number}", f"lod{lod}", filename)
                     
                     # Create output directory if it doesn't exist
                     os.makedirs(os.path.dirname(output_canny_path), exist_ok=True)
@@ -97,7 +97,7 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     
-    for scene_number in range(51):  # Assuming scene numbers are from 0 to 50
+    for scene_number in range(4):  # Assuming scene numbers are from 0 to 50
         scene_freestyle_folder = os.path.join(freestyle_folder, f"{scene_number}")
         scene_canny_folder = os.path.join(canny_folder, f"{scene_number}")
         
@@ -122,34 +122,64 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
                         print(f"Canny image {canny_path} does not exist. Skipping.")
                         continue
                     
+                    # Save individual images for debugging
+                    debug_folder = os.path.join(output_folder, "debug", f"{scene_number}", f"lod{lod}")
+                    os.makedirs(debug_folder, exist_ok=True)            
+                    
+                            
                     # Load images
                     freestyle_image = cv2.imread(freestyle_path, cv2.IMREAD_UNCHANGED)
-                    canny_image = cv2.imread(canny_path, cv2.IMREAD_UNCHANGED)
+                    freestyle_image = freestyle_image[:, :, :3]*255  # Convert to RGB if it has an alpha channel
+                    freestyle_image = cv2.cvtColor(freestyle_image, cv2.COLOR_RGB2GRAY)
                     
-                    # freestyle_image is an rgba image, canny_image is a binary mask in rgb format
+                    print("frerestyuel shaope " , freestyle_image.shape)
+                    print(freestyle_image[200:220, 200:220])
+                    # Save freestyle image
+                    freestyle_debug_path = os.path.join(debug_folder, f"freestyle_{filename}")
+                    cv2.imwrite(freestyle_debug_path, freestyle_image)
+                    
+                    canny_image = cv2.imread(canny_path, cv2.IMREAD_GRAYSCALE)
+                    print("canny max value", canny_image.max())
+                    
+                    # freestyle_image is grayscale, canny_image is a binary mask
                     if freestyle_image is None or canny_image is None:
                         print(f"Error loading images for {filename}. Skipping.")
                         continue
                     
-                    # Combine the two binary masks
-                    combined_mask = np.maximum(freestyle_image, canny_image)
+                    # Combine the two binary masks using bitwise OR (union) or AND (intersection)
+                    # Use OR to combine edges from both sources
+                    combined_mask = cv2.bitwise_or(freestyle_image, canny_image)
+                    
+                    # Alternatively, use AND for intersection:
+                    # combined_mask = cv2.bitwise_and(freestyle_image, canny_image)
                     
                     # Save the combined mask
                     output_path = os.path.join(output_folder, f"{scene_number}", f"lod{lod}", filename)
                     os.makedirs(os.path.dirname(output_path), exist_ok=True)
                     cv2.imwrite(output_path, combined_mask)
+                    
+
+                    
+
+                    
+                    # Save canny image
+                    canny_debug_path = os.path.join(debug_folder, f"canny_{filename}")
+                    cv2.imwrite(canny_debug_path, canny_image)
+                    
                     print(f"Combined {freestyle_path} and {canny_path} -> {output_path}")
+                    print(f"Debug images saved: {freestyle_debug_path}, {canny_debug_path}")
+                    # break  # Remove this break to process all files
 
 
     
 input_image_folder = "/home/athiwat/progressive_img2sketch/resources/LOD_orbit_images_BLENDER_WORKBENCH"
 output_canny_folder = "/home/athiwat/progressive_img2sketch/resources/LOD_canny_images"
-# freestyle_folder = "resources/LOD_orbit_freestyle"
 
-# output_folder = "resources/LOD_combined_sketches"
+freestyle_folder = "resources/LOD_orbit_freestyles_BLENDER_WORKBENCH"
+output_folder = "resources/LOD_combined_sketches"
 
 # Extract Canny edges from the input images
-images_to_canny_pipe(input_image_folder, output_canny_folder)
+# images_to_canny_pipe(input_image_folder, output_canny_folder)
 
 # Combine freestyle strokes and Canny edges into a single binary mask
-# combine_freestyle_and_canny(freestyle_folder, output_canny_folder, output_folder)
+combine_freestyle_and_canny(freestyle_folder, output_canny_folder, output_folder)

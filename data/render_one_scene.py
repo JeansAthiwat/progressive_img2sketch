@@ -3,17 +3,7 @@ import os
 import math
 import json
 from math import atan2, sqrt
-# from tqdm import tqdm
-render_engine="BLENDER_WORKBENCH" # "CYCLES" # 
-
-# Define the base path
-base_path = "/home/athiwat/progressive_img2sketch/resources/LOD_data_50"
-processed_image_base_path = f"/home/athiwat/progressive_img2sketch/resources/LOD_orbit_images_{render_engine}"
-processed_freestyle_base_path = f"/home/athiwat/progressive_img2sketch/resources/LOD_orbit_freestyles_{render_engine}"
-
-azimuth_step = 15
-elevations = [0, 15, 30]  # in degrees
-
+import sys
 
 def setup_render(output_path):
     bpy.context.scene.render.engine = render_engine
@@ -236,45 +226,37 @@ def render_freestyle_views(output_folder, model_name):
             setup_render(out_path)
             bpy.ops.render.render(write_still=True)
 
-RENDER_OPTIONS = "freestyle" # ["image", "freestyle", "both"]
+# Parameters
+azimuth_step = 15
+elevations = [0, 15, 30]
+expected_image_count = (360 // azimuth_step) * len(elevations)
 
-# Iterate over all subdirectories and render models
-for folder in os.listdir(base_path):
-    if folder.isdigit() and 0 <= int(folder) <= 40:
-        folder_path = os.path.join(base_path, folder)
-        if os.path.isdir(folder_path):
-            for lod in range(3, 4):
-                obj_file_path = os.path.join(folder_path, f"lod{lod}.obj")
-                if os.path.exists(obj_file_path):
-                    clear_scene()
-                    import_model(obj_file_path, limited_dissolve=True)
-                    setup_lighting()
+# Parse CLI args
+argv = sys.argv
+argv = argv[argv.index("--") + 1:]  # get args after "--"
+scene_id = int(argv[0])
+lod_level = int(argv[1])
 
-                    if RENDER_OPTIONS == "freestyle":
-                        output_freestyle_folder = os.path.join(
-                            processed_freestyle_base_path, folder, f"lod{lod}"
-                        )
-                        os.makedirs(output_freestyle_folder, exist_ok=True)
-                        render_freestyle_views(output_freestyle_folder, f"lod{lod}")
-                        
-                    elif RENDER_OPTIONS == "image":
-                        output_image_folder = os.path.join(
-                            processed_image_base_path, folder, f"lod{lod}"
-                        )
-                        os.makedirs(output_image_folder, exist_ok=True)
-                        render_image_views(output_image_folder, f"lod{lod}")
-                        
-                    elif RENDER_OPTIONS == "both":
-                        # Create output directories for both image and freestyle renders
-                        output_image_folder = os.path.join(
-                            processed_image_base_path, folder, f"lod{lod}"
-                        )
-                        output_freestyle_folder = os.path.join(
-                            processed_freestyle_base_path, folder, f"lod{lod}"
-                        )
-                        os.makedirs(output_image_folder, exist_ok=True)
-                        os.makedirs(output_freestyle_folder, exist_ok=True)
-                        render_image_views(output_image_folder, f"lod{lod}")
+# Paths
+render_engine = "BLENDER_WORKBENCH"
+base_path = "/home/athiwat/progressive_img2sketch/resources/LOD_data_50"
+processed_base = f"/home/athiwat/progressive_img2sketch/resources/LOD_orbit_freestyles_{render_engine}"
+obj_path = os.path.join(base_path, str(scene_id), f"lod{lod_level}.obj")
+output_folder = os.path.join(processed_base, str(scene_id), f"lod{lod_level}")
 
+# Skip if already rendered
+if os.path.exists(output_folder):
+    existing = [f for f in os.listdir(output_folder) if f.endswith(".png")]
+    if len(existing) >= expected_image_count:
+        print(f"✔ Scene {scene_id} LOD {lod_level} already rendered. Skipping.")
+        sys.exit(0)
 
-print("Rendering completed for all models.")
+# Create output dir
+os.makedirs(output_folder, exist_ok=True)
+
+clear_scene()
+import_model(obj_path, limited_dissolve=True)
+setup_lighting()
+render_freestyle_views(output_folder, f"lod{lod_level}")
+
+print(f"✅ Rendered Scene {scene_id} LOD {lod_level}")
