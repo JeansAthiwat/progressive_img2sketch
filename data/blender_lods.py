@@ -19,17 +19,6 @@ processed_freestyle_base_path = f"/home/athiwat/progressive_img2sketch/resources
 azimuth_step = 15
 elevations = [0, 15, 30]  # in degrees
 
-def enable_gpu_rendering(device_type='CUDA'):
-    if 'cycles' not in bpy.context.preferences.addons:
-        bpy.ops.preferences.addon_enable(module='cycles')
-    bpy.context.scene.render.engine = 'CYCLES'
-    prefs = bpy.context.preferences.addons['cycles'].preferences
-    prefs.compute_device_type = device_type
-    prefs.get_devices()
-    for d in prefs.devices:
-        d.use = True
-    bpy.context.scene.cycles.device = 'GPU'
-
 
 def setup_render(output_path):
     bpy.context.scene.render.engine = render_engine
@@ -179,7 +168,7 @@ def render_both_views(output_img_folder, output_fs_folder, model_name):
 
     # 3) Prepare Freestyle settings (they’ll be flipped on/off)
     scene.render.line_thickness_mode = 'ABSOLUTE'
-    scene.render.line_thickness      = 0.6
+    scene.render.line_thickness      = 0.4
     view_layer.use_freestyle         = True
     fs = view_layer.freestyle_settings
     fs.as_render_pass     = True
@@ -329,9 +318,6 @@ def render_freestyle_views(output_folder, model_name):
             setup_render(out_path, bg_color=(1,1,1))
             bpy.ops.render.render(write_still=True)
 
-# Enable GPU rendering
-enable_gpu_rendering('CUDA')
-
 # Iterate over all subdirectories and render models
 for folder in os.listdir(base_path):
     if folder.isdigit() and 0 <= int(folder) <= 50:
@@ -343,21 +329,21 @@ for folder in os.listdir(base_path):
                     clear_scene()
                     import_model(obj_file_path)
                     setup_lighting()
+
                     output_image_folder = os.path.join(
                         processed_image_base_path, folder, f"lod{lod}"
                     )
-                    if not os.path.exists(output_image_folder):
-                        os.makedirs(output_image_folder)
-                    # render_image_views(output_image_folder, f"lod{lod}")
-                    
-                    # Render freestyle images
                     output_freestyle_folder = os.path.join(
                         processed_freestyle_base_path, folder, f"lod{lod}"
                     )
-                    if not os.path.exists(output_freestyle_folder):
-                        os.makedirs(output_freestyle_folder)
-                    # render_freestyle_views(output_freestyle_folder, f"lod{lod}")
-                    
-                    render_both_views(output_image_folder, output_freestyle_folder, f"lod{lod}")
+                    os.makedirs(output_image_folder, exist_ok=True)
+                    os.makedirs(output_freestyle_folder, exist_ok=True)
+
+                    # if lod in [1, 2]:
+                    #     render_both_views(output_image_folder, output_freestyle_folder, f"lod{lod}")
+                    # else:  # LOD3
+                    #     render_image_views(output_image_folder, f"lod{lod}")
+                    render_image_views(output_image_folder, f"lod{lod}")
+
 
 print("Rendering completed for all models.")

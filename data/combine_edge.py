@@ -7,7 +7,7 @@ from PIL import Image
 # import gayporn # Assuming gayporn is a placeholder for the actual module you want to use
 # from ultrakill import war_without_reason # goated game tbh
 
-def extract_canny_edges(image_path, hysteresis_threshold=(40, 200), kernel_size=3):
+def extract_canny_edges(image_path, hysteresis_threshold=(10, 50), kernel_size=3):
     """
     Extracts Canny edges from the given image.
     
@@ -30,7 +30,7 @@ def extract_canny_edges(image_path, hysteresis_threshold=(40, 200), kernel_size=
         alpha_channel = image[:, :, 3]
         gray_image[alpha_channel == 0] = 0  # Mask out fully transparent regions
     else:
-        raise ValueError("Damn something wong")
+        raise ValueError("Damn something wong:", image.shape)
     
     # Apply Gaussian blur to reduce noise
     blurred_image = cv2.GaussianBlur(gray_image, (kernel_size, kernel_size), 0)
@@ -142,8 +142,8 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
 
 
     
-input_image_folder = "resources/LOD_dataset_imgs"
-output_canny_folder = "resources/LOD_canny_images"
+input_image_folder = "/home/athiwat/progressive_img2sketch/resources/LOD_orbit_images_BLENDER_WORKBENCH"
+output_canny_folder = "/home/athiwat/progressive_img2sketch/resources/LOD_canny_images"
 # freestyle_folder = "resources/LOD_orbit_freestyle"
 
 # output_folder = "resources/LOD_combined_sketches"
