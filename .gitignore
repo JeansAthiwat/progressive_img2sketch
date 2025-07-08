@@ -3,7 +3,7 @@ resources/LOD_images
 resources/LOD_data_50
 resources/LOD_topdown_imgs
 resources/**
-blender-3.6.23-linux-x64/
+blender-3-6-23/
 ControlNet/ 
 
 blender-3.6.23-linux-x64.tar.xz

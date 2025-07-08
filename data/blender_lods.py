@@ -3,16 +3,11 @@ import os
 import math
 import json
 from math import atan2, sqrt
-
 # from tqdm import tqdm
-
 render_engine="BLENDER_WORKBENCH" # "CYCLES" # 
+
 # Define the base path
 base_path = "/home/athiwat/progressive_img2sketch/resources/LOD_data_50"
-# processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_model_512_60_angle_00"
-# processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_60_30_test"
-# processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_60_00"
-# processed_base_path = "/ssd/du_dataset/mvdfusion/my_dataset_processed_blender_whiteblock_512_num1_angle90_depth_map"
 processed_image_base_path = f"/home/athiwat/progressive_img2sketch/resources/LOD_orbit_images_{render_engine}"
 processed_freestyle_base_path = f"/home/athiwat/progressive_img2sketch/resources/LOD_orbit_freestyles_{render_engine}"
 
@@ -37,14 +32,28 @@ def setup_render(output_path):
     bg_node.inputs[0].default_value = (1, 1, 1, 1)  # RGBA for pure white background
 
 
-# Import model and apply transformations
-def import_model(obj_path):
+def import_model(obj_path, limited_dissolve=False):
     bpy.ops.import_scene.obj(filepath=obj_path)
     bpy.context.view_layer.update()
+
     # Move the model to the origin
     bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
-    for obj in bpy.context.selected_objects:
+    imported_objects = bpy.context.selected_objects
+
+    for obj in imported_objects:
         obj.location = (0, 0, 0)
+
+    # Apply limited dissolve if requested
+    if limited_dissolve and imported_objects:
+        obj = imported_objects[0]  # Use the first imported object
+        bpy.ops.object.select_all(action='DESELECT')
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.select_all(action='SELECT')
+        bpy.ops.mesh.dissolve_limited()  # Use Blender's default angle limit (30°)
+        bpy.ops.object.mode_set(mode='OBJECT')
 
 
 # Clear default objects and remove imported models
@@ -140,98 +149,7 @@ def render_image_views(output_folder, model_name):
             # render
             bpy.ops.render.render(write_still=True)
 
-
-def render_both_views(output_img_folder, output_fs_folder, model_name):
-    scene      = bpy.context.scene
-    if "ViewLayer" not in scene.view_layers:
-        scene.view_layers.new(name="ViewLayer")
-    view_layer = scene.view_layers["ViewLayer"]
-
-
-    # 1) Ensure Camera exists
-    if "Camera" not in bpy.data.objects:
-        bpy.ops.object.camera_add()
-    cam = bpy.data.objects["Camera"]
-    scene.camera = cam
-
-    # 2) Center mesh & compute orbit radius
-    bpy.context.view_layer.update()
-    meshes = [o for o in scene.objects if o.type=="MESH"]
-    if not meshes: return
-    obj = meshes[0]
-    bpy.ops.object.select_all(action="DESELECT")
-    obj.select_set(True)
-    bpy.context.view_layer.objects.active = obj
-    bpy.ops.object.origin_set(type="ORIGIN_GEOMETRY", center="BOUNDS")
-    obj.location = (0,0,0)
-    radius = max(obj.dimensions) * 2.0
-
-    # 3) Prepare Freestyle settings (they’ll be flipped on/off)
-    scene.render.line_thickness_mode = 'ABSOLUTE'
-    scene.render.line_thickness      = 0.4
-    view_layer.use_freestyle         = True
-    fs = view_layer.freestyle_settings
-    fs.as_render_pass     = True
-    fs.use_view_map_cache = True
-    fs.crease_angle       = math.radians(179)
-    # Clear/define a single LineSet
-    for ls in list(fs.linesets):
-        fs.linesets.remove(ls)
-    ls = fs.linesets.new("LineSet")
-    ls.select_silhouette = True
-    ls.select_border     = False
-    ls.select_crease     = True
-    ls.select_edge_mark  = False
-
-    # 4) Utility to setup compositor for a chosen pass
-    def setup_compositor(pass_name):
-        scene.use_nodes = True
-        tree = scene.node_tree
-        # wipe old nodes
-        for n in list(tree.nodes):
-            tree.nodes.remove(n)
-        rl        = tree.nodes.new(type="CompositorNodeRLayers")
-        comp     = tree.nodes.new(type="CompositorNodeComposite")
-        comp.location = 200,0
-        # link the desired pass into the composite
-        tree.links.new(rl.outputs[pass_name], comp.inputs["Image"])
-
-    # 5) Orbit loop: render RGB then Freestyle
-    for az in range(0, 360, azimuth_step):
-        for el in elevations:
-            # position camera
-            rad_az = math.radians(az)
-            rad_el = math.radians(el)
-            x = radius * math.cos(rad_az) * math.cos(rad_el)
-            y = radius * math.sin(rad_az) * math.cos(rad_el)
-            z = radius * math.sin(rad_el)
-            cam.location = (x, y, z)
-            # aim at center
-            vec = obj.location - cam.location
-            cam.rotation_euler = vec.to_track_quat('-Z','Y').to_euler()
-            bpy.context.view_layer.update()
-
-            # --- RGB pass ---
-            scene.render.use_freestyle = False
-            setup_compositor("Image")
-            setup_render(os.path.join(output_img_folder, f"{model_name}_az{az:03d}_el{el:02d}.png"))
-            scene.render.filepath = os.path.join(
-                output_img_folder, f"{model_name}_az{az:03d}_el{el:02d}.png"
-            )
-            bpy.ops.render.render(write_still=True)
-
-            # --- Freestyle pass ---
-            scene.render.use_freestyle = True
-            setup_compositor("Freestyle")
-            setup_render(os.path.join(output_img_folder, f"{model_name}_az{az:03d}_el{el:02d}.png"))
-            scene.render.filepath = os.path.join(
-                output_fs_folder, f"{model_name}_az{az:03d}_el{el:02d}.png"
-            )
-            bpy.ops.render.render(write_still=True)
-
 def render_freestyle_views(output_folder, model_name):
-    import os, math, bpy
-
     scene      = bpy.context.scene
     view_layer = scene.view_layers["ViewLayer"]
 
@@ -239,13 +157,13 @@ def render_freestyle_views(output_folder, model_name):
     scene.render.engine            = 'CYCLES'
     scene.render.use_freestyle     = True
     scene.render.line_thickness_mode = 'ABSOLUTE'
-    scene.render.line_thickness      = 0.4
+    scene.render.line_thickness      = 0.2
 
     view_layer.use_freestyle = True
     fs = view_layer.freestyle_settings
     fs.as_render_pass     = True              # output lines as their own pass
-    fs.use_view_map_cache = True              # speed up repeated renders
-    fs.crease_angle       = math.radians(178) # global crease cutoff
+    fs.use_view_map_cache = False              # speed up repeated renders
+    fs.crease_angle       = math.radians(179) # global crease cutoff
 
     # 2) Clear any existing LineSets, then add one that selects silhouettes, borders & creases
     for ls in list(fs.linesets):
@@ -315,35 +233,48 @@ def render_freestyle_views(output_folder, model_name):
                 output_folder,
                 f"{model_name}_az{az:03d}_el{el:02d}.png"
             )
-            setup_render(out_path, bg_color=(1,1,1))
+            setup_render(out_path)
             bpy.ops.render.render(write_still=True)
+
+RENDER_OPTIONS = "freestyle" # ["image", "freestyle", "both"]
 
 # Iterate over all subdirectories and render models
 for folder in os.listdir(base_path):
-    if folder.isdigit() and 0 <= int(folder) <= 50:
+    if folder.isdigit() and 0 <= int(folder) <= 40:
         folder_path = os.path.join(base_path, folder)
         if os.path.isdir(folder_path):
-            for lod in range(1, 4):
+            for lod in range(3, 4):
                 obj_file_path = os.path.join(folder_path, f"lod{lod}.obj")
                 if os.path.exists(obj_file_path):
                     clear_scene()
-                    import_model(obj_file_path)
+                    import_model(obj_file_path, limited_dissolve=True)
                     setup_lighting()
 
-                    output_image_folder = os.path.join(
-                        processed_image_base_path, folder, f"lod{lod}"
-                    )
-                    output_freestyle_folder = os.path.join(
-                        processed_freestyle_base_path, folder, f"lod{lod}"
-                    )
-                    os.makedirs(output_image_folder, exist_ok=True)
-                    os.makedirs(output_freestyle_folder, exist_ok=True)
-
-                    # if lod in [1, 2]:
-                    #     render_both_views(output_image_folder, output_freestyle_folder, f"lod{lod}")
-                    # else:  # LOD3
-                    #     render_image_views(output_image_folder, f"lod{lod}")
-                    render_image_views(output_image_folder, f"lod{lod}")
+                    if RENDER_OPTIONS == "freestyle":
+                        output_freestyle_folder = os.path.join(
+                            processed_freestyle_base_path, folder, f"lod{lod}"
+                        )
+                        os.makedirs(output_freestyle_folder, exist_ok=True)
+                        render_freestyle_views(output_freestyle_folder, f"lod{lod}")
+                        
+                    elif RENDER_OPTIONS == "image":
+                        output_image_folder = os.path.join(
+                            processed_image_base_path, folder, f"lod{lod}"
+                        )
+                        os.makedirs(output_image_folder, exist_ok=True)
+                        render_image_views(output_image_folder, f"lod{lod}")
+                        
+                    elif RENDER_OPTIONS == "both":
+                        # Create output directories for both image and freestyle renders
+                        output_image_folder = os.path.join(
+                            processed_image_base_path, folder, f"lod{lod}"
+                        )
+                        output_freestyle_folder = os.path.join(
+                            processed_freestyle_base_path, folder, f"lod{lod}"
+                        )
+                        os.makedirs(output_image_folder, exist_ok=True)
+                        os.makedirs(output_freestyle_folder, exist_ok=True)
+                        render_image_views(output_image_folder, f"lod{lod}")
 
 
 print("Rendering completed for all models.")
