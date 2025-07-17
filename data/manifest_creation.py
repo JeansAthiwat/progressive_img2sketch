@@ -2,18 +2,20 @@ import os
 import json
 import glob
 
-PROMPT_JSON_PATH = "ControlNet/training/LOD50/prompt.json"
+
 
 #This files generates the {"source": "", "target": "", "prompt": ""} manifest file for training ControlNet.
 
 LOD_FROM = 3
 LOD_TO = 2
 
+PROMPT_JSON_PATH = f"/home/athiwat/progressive_img2sketch/ControlNet/training/LOD50/prompt_from{LOD_FROM}_to{LOD_TO}.json"
+
 PATH_TO_REPO_ROOT = "/home/athiwat/progressive_img2sketch/"
-DATASET_DIR = "resources/LOD_canny_images/"
+DATASET_DIR = "resources/LOD_combined_sketches/"
 
 # Editable prompt for all entries
-TRAINING_PROMPT = "Convert high detail 3D model to lower detail 3D model"
+TRAINING_PROMPT = "Simplified architectural drawing"
 
 # Azimuth and elevation values (based on the file pattern)
 AZIMUTH_VALUES = [f"{i:03d}" for i in range(0, 360, 15)]  # 000, 015, 030, ..., 345
@@ -28,7 +30,7 @@ def generate_manifest():
     
     # Iterate through all folders (00-50)
     for folder_num in range(0, 46): # left some as a testset
-        folder_name = f"{folder_num:02d}"
+        folder_name = f"{folder_num}"
         
         # Check if both source and target LOD folders exist
         source_lod_path = os.path.join(PATH_TO_REPO_ROOT, DATASET_DIR, folder_name, f"lod{LOD_FROM}")
@@ -49,13 +51,13 @@ def generate_manifest():
                 
                 # Check if both files exist
                 if os.path.exists(source_path) and os.path.exists(target_path):
-                    # Create relative paths for the manifest
-                    source_rel_path = os.path.join(DATASET_DIR, folder_name, f"lod{LOD_FROM}", source_filename)
-                    target_rel_path = os.path.join(DATASET_DIR, folder_name, f"lod{LOD_TO}", target_filename)
+                    # Create absolute paths for the manifest
+                    source_abs_path = source_path
+                    target_abs_path = target_path
                     
                     manifest_entry = {
-                        "source": source_rel_path,
-                        "target": target_rel_path,
+                        "source": source_abs_path,
+                        "target": target_abs_path,
                         "prompt": TRAINING_PROMPT
                     }
                     manifest_entries.append(manifest_entry)
