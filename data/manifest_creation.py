@@ -9,13 +9,13 @@ import glob
 LOD_FROM = 3
 LOD_TO = 2
 
-PROMPT_JSON_PATH = f"/home/athiwat/progressive_img2sketch/ControlNet/training/LOD50/prompt_from{LOD_FROM}_to{LOD_TO}.json"
+PROMPT_JSON_PATH = f"/home/athiwat/progressive_img2sketch/ControlNet/training/LOD50_combined_sketch/prompt_from{LOD_FROM}_to{LOD_TO}.json"
 
 PATH_TO_REPO_ROOT = "/home/athiwat/progressive_img2sketch/"
 DATASET_DIR = "resources/LOD_combined_sketches/"
 
 # Editable prompt for all entries
-TRAINING_PROMPT = "Simplified architectural drawing"
+TRAINING_PROMPT = "simplified building wireframe drawing"
 
 # Azimuth and elevation values (based on the file pattern)
 AZIMUTH_VALUES = [f"{i:03d}" for i in range(0, 360, 15)]  # 000, 015, 030, ..., 345
