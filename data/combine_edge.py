@@ -58,7 +58,7 @@ def images_to_canny_pipe(input_image_folder, output_canny_folder, scene_range=ra
                 cv2.imwrite(output_canny_path, canny_edges_rgb)
                 print(f"Processed {input_image_path} -> {output_canny_path}")
 
-def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
+def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder, apply_canny_to_freestyle=True):
     """
     Combines freestyle strokes and Canny edges into a single binary mask.
     
@@ -70,7 +70,7 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
     
-    for scene_number in range(49,51):  # Assuming scene numbers are from 0 to 50
+    for scene_number in range(0,51):  # Assuming scene numbers are from 0 to 50
         scene_freestyle_folder = os.path.join(freestyle_folder, f"{scene_number}")
         scene_canny_folder = os.path.join(canny_folder, f"{scene_number}")
         
@@ -96,8 +96,8 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
                         continue
                     
                     # Save individual images for debugging
-                    debug_folder = os.path.join(output_folder, "debug", f"{scene_number}", f"lod{lod}")
-                    os.makedirs(debug_folder, exist_ok=True)            
+                    # debug_folder = os.path.join(output_folder, "debug", f"{scene_number}", f"lod{lod}")
+                    # os.makedirs(debug_folder, exist_ok=True)            
                     
                     # Load Freestyle RGBA image
                     freestyle_image = cv2.imread(freestyle_path, cv2.IMREAD_UNCHANGED)
@@ -138,27 +138,38 @@ def combine_freestyle_and_canny(freestyle_folder, canny_folder, output_folder):
                     # Freestyle is already in 0-255 range
                     freestyle_normalized = freestyle_gray.astype(np.uint8)
                     
+                    # # Optionally apply Canny to freestyle image
+                    if apply_canny_to_freestyle:
+                        freestyle_edge = cv2.Canny(freestyle_normalized, threshold1=10, threshold2=50)
+                        freestyle_edge = cv2.bitwise_not(freestyle_edge)  # Invert to match white background style
+                        freestyle_normalized = freestyle_edge
+
                     print(f"Freestyle range: {freestyle_normalized.min()}-{freestyle_normalized.max()}")
                     print(f"Canny range: {canny_normalized.min()}-{canny_normalized.max()}")
                     
                     # Save debug images BEFORE combining
-                    freestyle_debug_path = os.path.join(debug_folder, f"freestyle_{filename}")
-                    cv2.imwrite(freestyle_debug_path, freestyle_normalized)
+                    # freestyle_debug_path = os.path.join(debug_folder, f"freestyle_{filename}")
+                    # cv2.imwrite(freestyle_debug_path, freestyle_normalized)
                     
-                    canny_debug_path = os.path.join(debug_folder, f"canny_{filename}")
-                    cv2.imwrite(canny_debug_path, canny_normalized)
+                    # canny_debug_path = os.path.join(debug_folder, f"canny_{filename}")
+                    # cv2.imwrite(canny_debug_path, canny_normalized)
                     
                     # Combine using minimum to keep the darkest (black) strokes from both
                     combined_mask = np.minimum(freestyle_normalized, canny_normalized)
                     print(f"Combined mask range: {combined_mask.min()}-{combined_mask.max()}")
-                    combined_mask = np.where(combined_mask < 255, 0, 255).astype(np.uint8)  # Ensure binary mask
+                                        # Optionally apply Canny to freestyle image
+                    if apply_canny_to_freestyle:
+                        combined_mask = cv2.Canny(combined_mask, threshold1=10, threshold2=50)
+                        combined_mask = cv2.bitwise_not(combined_mask)  # Invert to match white background style
+                    
+                    # combined_mask = np.where(combined_mask < 255, 0, 255).astype(np.uint8)  # Ensure binary mask
                     # Save the combined mask
                     output_path = os.path.join(output_folder, f"{scene_number}", f"lod{lod}", filename)
                     os.makedirs(os.path.dirname(output_path), exist_ok=True)
                     cv2.imwrite(output_path, combined_mask)
                     
                     print(f"Combined {freestyle_path} and {canny_path} -> {output_path}")
-                    print(f"Debug images saved: {freestyle_debug_path}, {canny_debug_path}")
+                    # print(f"Debug images saved: {freestyle_debug_path}, {canny_debug_path}")
                     print(f"Combined range: {combined_mask.min()}-{combined_mask.max()}")
                     # break  # Remove this break to process all files
 
@@ -168,10 +179,10 @@ input_image_folder = "/home/athiwat/progressive_img2sketch/resources/LOD_orbit_i
 output_canny_folder = "/home/athiwat/progressive_img2sketch/resources/LOD_canny_images"
 
 freestyle_folder = "resources/LOD_orbit_freestyles_BLENDER_WORKBENCH"
-output_folder = "resources/LOD_combined_sketches"
+output_folder = "resources/LOD_combined_sketches_best_i_think"
 
 # Extract Canny edges from the input images
 # images_to_canny_pipe(input_image_folder, output_canny_folder)
 
 # Combine freestyle strokes and Canny edges into a single binary mask
-combine_freestyle_and_canny(freestyle_folder, output_canny_folder, output_folder)
+combine_freestyle_and_canny(freestyle_folder, output_canny_folder, output_folder, apply_canny_to_freestyle=False)
