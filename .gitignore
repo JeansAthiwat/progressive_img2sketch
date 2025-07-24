@@ -5,6 +5,7 @@ resources/LOD_topdown_imgs
 resources/**
 blender-3-6-23/
 
+
 blender-3.6.23-linux-x64.tar.xz
 # Ignore pyopengl and pygl
 pyopengl/
