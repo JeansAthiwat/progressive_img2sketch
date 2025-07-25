@@ -8,7 +8,7 @@ from trimesh.visual import ColorVisuals
 os.environ["LIBGL_ALWAYS_SOFTWARE"] = "1"
 
 # ─── User Options ─────────────────────────────────────────────────────────────
-lod_path = "/home/jeans/progressive_img2sketch/resources/LOD_data_50/29/lod2.obj"
+lod_path = "/home/athiwat/progressive_img2sketch/resources/LOD_data_50/29/lod2.obj"
 output_folder = "./orbit_renders"
 show_mesh = True
 threshold_degrees = 5.0
