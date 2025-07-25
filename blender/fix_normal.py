@@ -2,7 +2,7 @@ import os
 import numpy as np
 
 
-def fix_obj_mtl_path(obj_file_path):
+def fix_obj_mtl_path(obj_file_path, normalize=True):
     """
     Fix the reference path to the MTL file in the OBJ file, ensuring it uses the same name as the OBJ file and uses an absolute path.
     """
@@ -37,7 +37,8 @@ def fix_obj_mtl_path(obj_file_path):
         file.writelines(new_lines)
 
     # Normalize the model data in the OBJ file
-    normalize_obj_model(obj_file_path)
+    if normalize:
+        normalize_obj_model(obj_file_path)
 
 
 def fix_mtl_map_kd_path(mtl_file_path, obj_name):
@@ -140,5 +141,5 @@ def traverse_and_fix(root_dir):
 
 # Example usage
 # root_directory = "/ssd/du_dataset/mvdfusion/my_dataset_original_test_normal/"
-root_directory = "/home/athiwat/progressive_img2sketch/resources/LOD_data_50"
-traverse_and_fix(root_directory)
+root_directory = "/home/athiwat/progressive_img2sketch/resources/LOD_for_icp"
+traverse_and_fix(root_directory, normalize=False)
