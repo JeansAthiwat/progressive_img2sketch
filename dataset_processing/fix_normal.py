@@ -128,18 +128,20 @@ def normalize_obj_model(obj_file_path):
         file.writelines(new_lines)
 
 
-def traverse_and_fix(root_dir):
+def traverse_and_fix(root_dir, normalize=True):
     """
     Traverse all subfolders under the root directory and fix each OBJ file and its referenced MTL file.
     """
+    print(f"Starting to process OBJ files in {root_dir}... (normalize={normalize})")
     for subdir, _, files in os.walk(root_dir):
         for file in files:
             if file.endswith(".obj"):
                 obj_file_path = os.path.join(subdir, file)
-                fix_obj_mtl_path(obj_file_path)
+                fix_obj_mtl_path(obj_file_path, normalize=normalize)
+    print(f"Processed all OBJ files in {root_dir}. ")
 
 
 # Example usage
 # root_directory = "/ssd/du_dataset/mvdfusion/my_dataset_original_test_normal/"
 # root_directory = "/home/athiwat/progressive_img2sketch/resources/LOD_for_icp"
-# traverse_and_fix(root_directory, normalize=False)
+# traverse_and_fix(root_directory)
