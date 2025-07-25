@@ -12,12 +12,14 @@ ControlNet_fake/models
 ControlNet_fake/openai
 ControlNet_fake/training
 
-
+resources/
 blender-3.6.23-linux-x64.tar.xz
 # Ignore pyopengl and pygl
 pyopengl/
 pyglet/
 
+#ignore trimesh2
+trimesh2/
 # Ignore build directories
 .vscode/
 
