@@ -1,3 +1,8 @@
+import trimesh
+import pyrender
+import numpy as np
+import matplotlib.pyplot as plt
+
 def center_scene_by_bbox(scene: trimesh.Scene) -> trimesh.Scene:
     """
     Center the scene at the origin based on its bounding-box center.
@@ -6,7 +11,6 @@ def center_scene_by_bbox(scene: trimesh.Scene) -> trimesh.Scene:
     center = (min_corner + max_corner) / 2.0
     scene.apply_translation(-center)
     return scene
-
 
 def get_registration_matrix(
     source_mesh: trimesh.Trimesh,
