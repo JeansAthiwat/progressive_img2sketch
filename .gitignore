@@ -1,8 +1,20 @@
 #resources
 resources/LOD_images
 resources/LOD_data_50
+resources/LOD_topdown_imgs
+resources/**
+blender-3-6-23/
 
-# Ignore pyopengl and pyglet
+#ControlNet folder
+ControlNet_fake/image_log
+ControlNet_fake/inference_outputs
+ControlNet_fake/models
+ControlNet_fake/openai
+ControlNet_fake/training
+
+resources/
+blender-3.6.23-linux-x64.tar.xz
+# Ignore pyopengl and pygl
 pyopengl/
 pyglet/
 
