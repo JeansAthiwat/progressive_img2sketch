@@ -2,6 +2,12 @@
 
 # Current Pipeline rough idea
 
+numbers_train = [
+    1, 2, 3, 4, 6, 7, 8, 9, 10, 11, 12,
+    16, 17, 22, 23, 26, 27, 29, 32, 34, 35, 39, 41, 45, 46, 47, 48, 49, 50,
+    5, 13, 15, 19, 24, 25, 31, 33, 40, 42, 44
+]
+
 We start from an RGB camera image of a single building
  |
 \/
