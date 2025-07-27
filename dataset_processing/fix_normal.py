@@ -65,36 +65,46 @@ def normalize_obj(obj_path, centroid, scale):
     with open(obj_path, 'w') as f:
         f.writelines(new_lines)
 
-def fix_mtl_map_kd_path(mtl_file_path, obj_name):
+def fix_mtl_map_kd_path(mtl_file_path, obj_name, force_opaque=True):
     """
-    Fix the texture file reference paths in the MTL file by replacing relative paths with absolute paths, and ensure the folder names match the main OBJ file.
+    Fix the texture file reference paths in the MTL file by replacing relative paths with absolute paths,
+    and ensure the folder names match the main OBJ file.
+    Optionally force material to be fully opaque (d = 1.0).
     """
     mtl_dir = os.path.dirname(mtl_file_path)
     new_lines = []
+    has_opacity_line = False
 
-    # Read the MTL file
     with open(mtl_file_path, "r") as file:
         lines = file.readlines()
         for line in lines:
-            # Find lines containing "map_Kd" and fix their paths
             if line.startswith("map_Kd"):
                 texture_filename = line.split()[1]
-                corrected_texture_path = correct_texture_path(
-                    mtl_dir, texture_filename, obj_name
-                )
+                corrected_texture_path = correct_texture_path(mtl_dir, texture_filename, obj_name)
+
                 if os.path.exists(corrected_texture_path):
                     absolute_texture_path = os.path.abspath(corrected_texture_path)
                     new_lines.append(f"map_Kd {absolute_texture_path}\n")
                 else:
-                    new_lines.append(
-                        line
-                    )  # If the texture file is not found, keep the original line
+                    print(f"Warning: texture not found → {corrected_texture_path}")
+                    new_lines.append(line)
+
+            elif line.startswith("d "):
+                has_opacity_line = True
+                if force_opaque:
+                    new_lines.append("d 1.0\n")
+                else:
+                    new_lines.append(line)
             else:
                 new_lines.append(line)
 
-    # Rewrite the MTL file with updated content
+    # If no "d" line existed and we want full opacity, add it
+    if force_opaque and not has_opacity_line:
+        new_lines.append("d 1.0\n")
+
     with open(mtl_file_path, "w") as file:
         file.writelines(new_lines)
+
         
 def fix_paths_only(obj_file_path):
     """
@@ -131,13 +141,11 @@ def fix_paths_only(obj_file_path):
     with open(obj_file_path, "w") as file:
         file.writelines(new_lines)
 
-def traverse_and_fix(root_dir):
+def traverse_and_fix(root_dir, normalize: bool = True):
     """
-    Assumes scenes are immediate subfolders of root_dir.
-    For each scene folder:
+    For each scene in root_dir:
       1) fix all paths (mtl & textures)
-      2) compute global centroids & scale
-      3) normalize every LOD obj with same scale
+      2) if normalize: compute global centroids & scale, then normalize every LOD obj
     """
     for scene in os.listdir(root_dir):
         scene_dir = os.path.join(root_dir, scene)
@@ -149,14 +157,17 @@ def traverse_and_fix(root_dir):
             if fname.lower().endswith('.obj'):
                 fix_paths_only(os.path.join(scene_dir, fname))
 
-        # 2) compute global scale + centroids
-        centroids, scale = compute_scene_scale_and_centroids(scene_dir)
+        if normalize:
+            # 2) compute global scale + centroids
+            centroids, scale = compute_scene_scale_and_centroids(scene_dir)
 
-        # 3) apply uniform normalization
-        for obj_path, cent in centroids.items():
-            normalize_obj(obj_path, cent, scale)
+            # 3) apply uniform normalization
+            for obj_path, cent in centroids.items():
+                normalize_obj(obj_path, cent, scale)
 
-        print(f"Scene '{scene}': applied uniform scale={scale:.4f}")
+            print(f"Scene '{scene}': applied uniform scale={scale:.4f}")
+        else:
+            print(f"Scene '{scene}': paths fixed (skipped normalization)")
 
 # Example:
-traverse_and_fix("/home/athiwat/progressive_img2sketch/resources/LOD_for_icp")
+traverse_and_fix("/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_triangulated", normalize=False)
