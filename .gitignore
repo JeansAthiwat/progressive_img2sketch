@@ -4,6 +4,9 @@ resources/LOD_data_50
 resources/LOD_topdown_imgs
 resources/**
 blender-3-6-23/
+mesa-18.3.3/
+pyopengl/
+mesa-18.3.3.tar.gz
 
 #ControlNet folder
 ControlNet_fake/image_log
