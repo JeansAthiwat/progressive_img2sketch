@@ -284,11 +284,11 @@ RAW_LOD_DATASET_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opa
 
 
 # Step 4: Render together with the mesh
-AZIMUTH_STEP = 30
-ELEVATIONS = [30] # [0,10,20,30,40,50,60]
+AZIMUTH_STEP = 10 
+ELEVATIONS = [0,10,20,30,40,50,60] # [30]
 OUTPUT_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth"  # customize this
 
-SCENES = range(2, 51)  # Assuming scenes are numbered from 0 to 50 inclusive
+SCENES = range(0, 51)  # Assuming scenes are numbered from 0 to 50 inclusive
 LODS = [1, 2]
 
 for scene_num in SCENES:
@@ -307,12 +307,10 @@ for scene_num in SCENES:
 
     # ─── 2. Align meshes ──────────────────────────────────────────────
     # aligned_meshes = align_lods_1_2_only(lod_meshes, center_before=True, samples=4000)
-    aligned_meshes = lod_meshes.copy()  # For testing, skip alignment
-
 
     
     # # ─── 3. Build scene dict with crease lines ────────────────────────
-    for lod, mesh in aligned_meshes.items():
+    for lod, mesh in lod_meshes.items(): # for lod, mesh in aligned_meshes.items():
         # if lod == 1:
         #     print(f"Skipping LOD{lod} 1 for testing purposes")
         #     continue
@@ -342,7 +340,7 @@ for scene_num in SCENES:
         render_orbit_with_creases(
             mesh=mesh,
             line_mesh=line_mesh,
-            lod_meshes=aligned_meshes,
+            lod_meshes=lod_meshes, # aligned_meshes,
             scene_number=scene_num,
             lod=lod,
             output_root=OUTPUT_ROOT,
