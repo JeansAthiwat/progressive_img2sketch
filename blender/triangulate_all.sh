@@ -5,12 +5,12 @@ set -e
 BLENDER_EXEC="/home/athiwat/progressive_img2sketch/blender-3-6-23/blender" 
 # or e.g. BLENDER_EXEC="/home/athiwat/progressive_img2sketch/blender-3-6-23/blender"
 
-INPUT_DIR="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius"
-OUTPUT_DIR="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals"
+INPUT_DIR="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_1000radius"
+OUTPUT_DIR="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_1000radius_triangulated"
 BLENDER_SCRIPT="/home/athiwat/progressive_img2sketch/blender/triangulate_obj.py"
 
 # only these LODs will be triangulated
-ALLOWED_LODS=(lod1 lod2 lod3)
+ALLOWED_LODS=(lod1 lod2)
 
 mkdir -p "$OUTPUT_DIR"
 

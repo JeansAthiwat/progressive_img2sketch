@@ -90,7 +90,8 @@ def fix_mtl_map_kd_path(mtl_file_path, obj_name, force_opaque=True):
 
             elif line.startswith("d "):
                 if force_opaque:
-                    new_lines.append("d 1.0\n")
+                    # just remove the "d" line if it exists
+                    continue
                 else:
                     new_lines.append(line)
             else:
@@ -164,5 +165,7 @@ def traverse_and_fix(root_dir, normalize: bool = True):
             print(f"Scene '{scene}': paths fixed (skipped normalization)")
 
 # Example:
-TARGET_RADIUS = 10.0
-traverse_and_fix("/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_10radius", normalize=True)
+TARGET_RADIUS = 1000.0
+# traverse_and_fix("/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_1000radius", normalize=True) # first pass
+traverse_and_fix("/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_1000radius_triangulated", normalize=False) #after render fix normal and trianglation
+
