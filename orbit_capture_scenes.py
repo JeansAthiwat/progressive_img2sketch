@@ -226,14 +226,26 @@ def render_orbit_with_creases(mesh, line_mesh, lod_meshes, scene_number, lod, ou
             else:
                 raise ValueError(f"Unexpected image shape: {color.shape}")
 
-            # Save depth image (normalize to 0–255)
+            # — NEW depth export to match DPT demo exactly —
             save_dir_depth = os.path.join(output_root, "depth", str(scene_number), f"lod{lod}")
             os.makedirs(save_dir_depth, exist_ok=True)
             save_path_depth = os.path.join(save_dir_depth, filename)
-
-            depth_normalized = 255 * (depth - np.nanmin(depth)) / (np.nanmax(depth) - np.nanmin(depth) + 1e-8)
-            depth_uint8 = np.clip(depth_normalized, 0, 255).astype(np.uint8)
-            Image.fromarray(depth_uint8, mode="L").save(save_path_depth)
+            # 1) fill zero‐depth (misses) with farthest valid Z
+            valid_mask = depth > 0.0
+            max_z = float(depth[valid_mask].max())
+            depth_f = depth.copy()
+            depth_f[~valid_mask] = max_z
+            # 2) compute disparity = 1 / depth
+            eps = 1e-6
+            disp = 1.0 / (depth_f + eps)
+            # 3) normalize disparity to [0…1]
+            dmin, dmax = float(disp.min()), float(disp.max())
+            disp_n = (disp - dmin) / (dmax - dmin)
+            # 4) to uint8 [0…255], so that near=255 (white), far=0 (black)
+            u8 = (disp_n * 255.0).clip(0, 255).astype(np.uint8)
+            # 5) stack to 3 channels (H, W, 3) and save as RGB
+            depth_rgb = np.stack([u8] * 3, axis=-1)
+            Image.fromarray(depth_rgb, mode="RGB").save(save_path_depth)
 
     renderer.delete()
 
