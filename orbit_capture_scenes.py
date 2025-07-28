@@ -98,6 +98,7 @@ def align_lods(scenes: dict[int, trimesh.Scene], center_before: bool = False):
     return scenes
 
 def align_lods_1_2_only(meshes: dict[int, trimesh.base.Trimesh], center_before: bool = False, samples: int = 3000):
+    
     # Show original bbox centers
     for lod, mesh in [(1, meshes[1]), (2, meshes[2])]:
         min_corner, max_corner = mesh.bounds
@@ -174,26 +175,24 @@ def render_orbit_with_creases(mesh, line_mesh, lod_meshes, scene_number, lod, ou
             z = radius * np.cos(rad_el) * np.cos(rad_az)
             eye = np.array([x, y, z])
 
-            scene = pyrender.Scene(bg_color=[255,255,255], ambient_light=[0.5, 0.5, 0.5])
-            # intensity = 100.0
+            scene = pyrender.Scene(bg_color=[255,255,255, 0], ambient_light=[0.9, 0.9, 0.9])
+            intensity = 10.0
 
-            # key = pyrender.DirectionalLight(color=np.ones(3), intensity=intensity)
-            # key_pose = np.array([[ 0,  0,  1,  2], [ 0,  1,  0,  2], [ 1,  0,  0,  2], [ 0,  0,  0,  1]])
-            # scene.add(key, pose=key_pose)
+            key = pyrender.DirectionalLight(color=np.ones(3), intensity=intensity)
+            key_pose = np.array([[ 0,  0,  1,  2], [ 0,  1,  0,  2], [ 1,  0,  0,  2], [ 0,  0,  0,  1]])
+            scene.add(key, pose=key_pose)
 
-            # fill = pyrender.DirectionalLight(color=np.ones(3), intensity=intensity * 0.8)
-            # fill_pose = np.array([[ 0,  0, -1, -2], [ 0,  1,  0,  1], [-1,  0,  0, -2], [ 0,  0,  0,  1]])
-            # scene.add(fill, pose=fill_pose)
+            fill = pyrender.DirectionalLight(color=np.ones(3), intensity=intensity * 0.85)
+            fill_pose = np.array([[ 0,  0, -1, -2], [ 0,  1,  0,  1], [-1,  0,  0, -2], [ 0,  0,  0,  1]])
+            scene.add(fill, pose=fill_pose)
 
-            # back = pyrender.DirectionalLight(color=np.ones(3), intensity=intensity * 0.6)
-            # back_pose = np.array([[ 1,  0,  0, -2], [ 0,  0,  1, -2], [ 0,  1,  0,  2], [ 0,  0,  0,  1]])
-            # scene.add(back, pose=back_pose)
+            back = pyrender.DirectionalLight(color=np.ones(3), intensity=intensity * 0.70)
+            back_pose = np.array([[ 1,  0,  0, -2], [ 0,  0,  1, -2], [ 0,  1,  0,  2], [ 0,  0,  0,  1]])
+            scene.add(back, pose=back_pose)
 
             cam_pose = look_at_matrix(eye, target, up=np.array([0, 1, 0]))
             camera = pyrender.PerspectiveCamera(yfov=np.pi / 3.0, aspectRatio=width / height)
             scene.add(camera, pose=cam_pose)
-
-            # … inside your loop, after creating `scene` and before adding to it …
 
             # 1. Build textured mesh from Trimesh
             mesh_tex = PyMesh.from_trimesh(mesh, smooth=False)  # preserves original textures
@@ -211,8 +210,7 @@ def render_orbit_with_creases(mesh, line_mesh, lod_meshes, scene_number, lod, ou
             else:
                 print("!!No line mesh provided, skipping crease rendering!!")
 
-            # render_flags = RenderFlags.ALL_SOLID | RenderFlags.RGBA | RenderFlags.SKIP_CULL_FACES
-            render_flags = RenderFlags.SHADOWS_ALL
+            render_flags = RenderFlags.ALL_SOLID | RenderFlags.RGBA | RenderFlags.SKIP_CULL_FACES
             color, depth = renderer.render(scene, flags=render_flags)
 
             filename = f"lod{lod}_az{az:03d}_el{el:02d}.png"
@@ -287,13 +285,14 @@ RAW_LOD_DATASET_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opa
 
 # Step 4: Render together with the mesh
 AZIMUTH_STEP = 30
-ELEVATIONS = [30] #[0,10,20,30,40,50,60]
+ELEVATIONS = [30] # [0,10,20,30,40,50,60]
 OUTPUT_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth"  # customize this
 
-SCENES = range(1, 51)  # Assuming scenes are numbered from 0 to 50 inclusive
+SCENES = range(2, 51)  # Assuming scenes are numbered from 0 to 50 inclusive
 LODS = [1, 2]
 
 for scene_num in SCENES:
+    print(f"Processing scene {scene_num}...")
     # ─── 1. Load LOD meshes into dict ─────────────────────────────────
     lod_meshes = {}
     for lod in LODS:
@@ -307,16 +306,17 @@ for scene_num in SCENES:
         lod_meshes[lod] = lod_mesh
 
     # ─── 2. Align meshes ──────────────────────────────────────────────
-    aligned_meshes = align_lods_1_2_only(lod_meshes, center_before=True, samples=4000)
+    # aligned_meshes = align_lods_1_2_only(lod_meshes, center_before=True, samples=4000)
+    aligned_meshes = lod_meshes.copy()  # For testing, skip alignment
 
 
     
     # # ─── 3. Build scene dict with crease lines ────────────────────────
     for lod, mesh in aligned_meshes.items():
-        if lod == 1:
-            print(f"Skipping LOD{lod} 1 for testing purposes")
-            continue
-        print(f"Processing LOD{lod}...")
+        # if lod == 1:
+        #     print(f"Skipping LOD{lod} 1 for testing purposes")
+        #     continue
+        print(f"    Processing LOD{lod}...")
 
         # Step 1: Weld mesh for edge adjacency analysis
         welded = trimesh.Trimesh(vertices=mesh.vertices.copy(),
