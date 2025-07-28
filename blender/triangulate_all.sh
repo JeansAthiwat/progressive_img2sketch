@@ -2,11 +2,11 @@
 set -e
 
 # point to your Blender binary if needed
-BLENDER_EXEC="blender"  
+BLENDER_EXEC="/home/athiwat/progressive_img2sketch/blender-3-6-23/blender" 
 # or e.g. BLENDER_EXEC="/home/athiwat/progressive_img2sketch/blender-3-6-23/blender"
 
-INPUT_DIR="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized"
-OUTPUT_DIR="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_triangulated"
+INPUT_DIR="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius"
+OUTPUT_DIR="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals"
 BLENDER_SCRIPT="/home/athiwat/progressive_img2sketch/blender/triangulate_obj.py"
 
 # only these LODs will be triangulated

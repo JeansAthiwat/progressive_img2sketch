@@ -1,7 +1,7 @@
 import os
 import numpy as np
 
-TARGET_RADIUS = 100.0
+
 def correct_texture_path(mtl_dir, texture_filename, obj_name):
     """
     Correct the texture file path to ensure the folder name matches the main file's folder name.
@@ -73,7 +73,6 @@ def fix_mtl_map_kd_path(mtl_file_path, obj_name, force_opaque=True):
     """
     mtl_dir = os.path.dirname(mtl_file_path)
     new_lines = []
-    has_opacity_line = False
 
     with open(mtl_file_path, "r") as file:
         lines = file.readlines()
@@ -90,17 +89,12 @@ def fix_mtl_map_kd_path(mtl_file_path, obj_name, force_opaque=True):
                     new_lines.append(line)
 
             elif line.startswith("d "):
-                has_opacity_line = True
                 if force_opaque:
                     new_lines.append("d 1.0\n")
                 else:
                     new_lines.append(line)
             else:
                 new_lines.append(line)
-
-    # If no "d" line existed and we want full opacity, add it
-    if force_opaque and not has_opacity_line:
-        new_lines.append("d 1.0\n")
 
     with open(mtl_file_path, "w") as file:
         file.writelines(new_lines)
@@ -170,4 +164,5 @@ def traverse_and_fix(root_dir, normalize: bool = True):
             print(f"Scene '{scene}': paths fixed (skipped normalization)")
 
 # Example:
-traverse_and_fix("/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_triangulated", normalize=False)
+TARGET_RADIUS = 10.0
+traverse_and_fix("/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_10radius", normalize=True)
