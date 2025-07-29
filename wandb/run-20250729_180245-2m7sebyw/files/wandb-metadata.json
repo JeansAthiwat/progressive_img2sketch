@@ -1,0 +1,64 @@
+{
+  "os":  "Linux-5.15.0-125-generic-x86_64-with-glibc2.31",
+  "python":  "CPython 3.10.18",
+  "startedAt":  "2025-07-29T09:02:45.624218Z",
+  "args":  [
+    "--pretrained_model_name_or_path=stable-diffusion-v1-5/stable-diffusion-v1-5",
+    "--controlnet_model_name_or_path=lllyasviel/control_v11f1p_sd15_depth",
+    "--output_dir=/mnt/nas/athiwat/ControlNet_models/29-07-2025-lod2to1-depth_1rad_dataset-from-pretrained",
+    "--train_data_dir=/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth_cropped_512x512",
+    "--image_column=target_images",
+    "--conditioning_image_column=conditioning_images",
+    "--resolution=512",
+    "--learning_rate=1e-5",
+    "--train_batch_size=4",
+    "--gradient_accumulation_steps=4",
+    "--dataloader_num_workers=4",
+    "--num_train_epochs=8",
+    "--validation_steps=200",
+    "--validation_image",
+    "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth_cropped_512x512/depth/36/lod2/lod2_az000_el30.png",
+    "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth_cropped_512x512/depth/49/lod2/lod2_az070_el40.png",
+    "--validation_prompt",
+    "simplified architectural scribble, crisp black strokes, pure white background, no colours, no shading, no gradients, no windows no doors, no details",
+    "simplified architectural scribble, crisp black strokes, pure white background, no colours, no shading, no gradients, no windows no doors, no details",
+    "--num_validation_images=2",
+    "--tracker_run_name=29-07-2025-lod2to1-depth_1rad_dataset-from-pretrained",
+    "--report_to=wandb"
+  ],
+  "program":  "/home/athiwat/progressive_img2sketch/diffusers/examples/controlnet/AAtrain_controlnet_depth.py",
+  "codePath":  "diffusers/examples/controlnet/AAtrain_controlnet_depth.py",
+  "codePathLocal":  "diffusers/examples/controlnet/AAtrain_controlnet_depth.py",
+  "git":  {
+    "remote":  "https://github.com/JeansAthiwat/progressive_img2sketch.git",
+    "commit":  "6ea444127e65c4e7f1356c6337f12288f9b7f184"
+  },
+  "email":  "athiwat5146@gmail.com",
+  "root":  "/home/athiwat/progressive_img2sketch",
+  "host":  "admin-a100",
+  "executable":  "/home/athiwat/.conda/envs/athiwat_controlnet/bin/python3.10",
+  "cpu_count":  24,
+  "cpu_count_logical":  48,
+  "gpu":  "NVIDIA A100 80GB PCIe",
+  "gpu_count":  1,
+  "disk":  {
+    "/":  {
+      "total":  "1967317549056",
+      "used":  "1829550477312"
+    }
+  },
+  "memory":  {
+    "total":  "101016039424"
+  },
+  "gpu_nvidia":  [
+    {
+      "name":  "NVIDIA A100 80GB PCIe",
+      "memoryTotal":  "85899345920",
+      "cudaCores":  6912,
+      "architecture":  "Ampere",
+      "uuid":  "GPU-e38174c4-1e96-e667-f764-c3fcbda1a182"
+    }
+  ],
+  "cudaVersion":  "12.5",
+  "writerId":  "8ap721q62v4qnb19rpc1xv6r8690zgag"
+}

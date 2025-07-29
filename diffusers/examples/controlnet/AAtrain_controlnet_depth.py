@@ -43,7 +43,7 @@ from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
-from dataset_builder import SchoolRasterSketchDataset
+from dataset_builder import SchoolDepthDataset
 
 
 if is_wandb_available():
@@ -921,7 +921,7 @@ def main(args):
         eps=args.adam_epsilon,
     )
 
-    train_dataset = SchoolRasterSketchDataset(
+    train_dataset = SchoolDepthDataset(
         tokenizer=tokenizer,
         pair_from_to=(2, 1),
         augment=True
@@ -1222,3 +1222,25 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
     main(args)
+
+""" lod2 to 1 controlnet
+  accelerate launch /home/athiwat/progressive_img2sketch/diffusers/examples/controlnet/AAtrain_controlnet_depth.py \
+  --pretrained_model_name_or_path="stable-diffusion-v1-5/stable-diffusion-v1-5" \
+  --controlnet_model_name_or_path="lllyasviel/control_v11f1p_sd15_depth" \
+  --output_dir="/mnt/nas/athiwat/ControlNet_models/29-07-2025-lod2to1-depth_1rad_dataset-from-pretrained" \
+  --train_data_dir="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth_cropped_512x512" \
+  --image_column="target_images" \
+  --conditioning_image_column="conditioning_images" \
+  --resolution=512 \
+  --learning_rate=1e-5 \
+  --train_batch_size=4 \
+  --gradient_accumulation_steps=4 \
+  --dataloader_num_workers=4 \
+  --num_train_epochs=8 \
+  --validation_steps=200 \
+  --validation_image "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth_cropped_512x512/depth/36/lod2/lod2_az000_el30.png" "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth_cropped_512x512/depth/49/lod2/lod2_az070_el40.png" \
+  --validation_prompt "simplified architectural scribble, crisp black strokes, pure white background, no colours, no shading, no gradients, no windows no doors, no details" "simplified architectural scribble, crisp black strokes, pure white background, no colours, no shading, no gradients, no windows no doors, no details" \
+  --num_validation_images=2 \
+  --tracker_run_name="29-07-2025-lod2to1-depth_1rad_dataset-from-pretrained" \
+  --report_to=wandb \
+  """

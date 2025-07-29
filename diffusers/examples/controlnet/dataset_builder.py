@@ -27,14 +27,6 @@ class SchoolRasterSketchDataset(Dataset):
         if tokenizer is None:
             raise ValueError("tokenizer must be provided")
         self.tokenizer = tokenizer
-
-        self.inputs = self.tokenizer(
-            self.prompt,
-            padding="max_length",
-            max_length=self.tokenizer.model_max_length,
-            truncation=True,
-            return_tensors="pt",
-        )
         
         self.source_lod = pair_from_to[0]
         self.target_lod = pair_from_to[1]
@@ -101,25 +93,38 @@ class SchoolRasterSketchDataset(Dataset):
         sketch_path, image_path = self.image_pairs[idx]
         sketch = Image.open(sketch_path).convert("RGB")
         image = Image.open(image_path).convert("RGB")
-
-        # Resize if resolution is not 512
+        
         if self.resolution != 512:
-            sketch = sketch.resize((self.resolution, self.resolution), Image.BICUBIC)
+            sketch = sketch.resize((self.resolution, self.resolution), Image.NEAREST)
             image = image.resize((self.resolution, self.resolution), Image.BICUBIC)
-            print(f"Resized images to {self.resolution}x{self.resolution}")
-
+        
         if self.augment:
             sketch, image = self.apply_paired_augmentations(sketch, image)
+        
+        conditioning = self.conditioning_image_transforms(sketch)
+        image_t = self.image_transforms(image)
 
-        # To tensor
-        sketch = self.conditioning_image_transforms(sketch)
-        image = self.image_transforms(image)
+        # Randomly drop prompt with 50% chance
+        if random.random() < 0.5:
+            prompt = ""
+        else:
+            prompt = self.prompt
+
+        inputs = self.tokenizer(
+            prompt,
+            padding="max_length",
+            max_length=self.tokenizer.model_max_length,
+            truncation=True,
+            return_tensors="pt"
+        )
+        input_ids = inputs.input_ids.squeeze(0)
 
         return {
-            "pixel_values": image,
-            "conditioning_pixel_values": sketch,
-            "input_ids": self.inputs.input_ids.squeeze(0),
+            "pixel_values": image_t,
+            "conditioning_pixel_values": conditioning,
+            "input_ids": input_ids,
         }
+
 
 
             
@@ -134,17 +139,9 @@ class SchoolRasterSketchDataset(Dataset):
 
         return sketch, image
     
-from PIL import Image
-from torch.utils.data import Dataset
-import os
-import random
-import torchvision.transforms as T
-from typing import Tuple
-
-
 class SchoolDepthDataset(Dataset):
     def __init__(self,
-                 data_root="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth_cropped_512x512/depth",
+                 data_root="/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth_cropped_512x512",
                  tokenizer=None,
                  prompt="simplified architectural scribble, crisp black strokes, pure white background, no colours, no shading, no gradients, no windows no doors, no details",
                  pair_from_to=(2, 1),
@@ -161,14 +158,6 @@ class SchoolDepthDataset(Dataset):
         if tokenizer is None:
             raise ValueError("tokenizer must be provided")
         self.tokenizer = tokenizer
-
-        self.inputs = self.tokenizer(
-            self.prompt,
-            padding="max_length",
-            max_length=self.tokenizer.model_max_length,
-            truncation=True,
-            return_tensors="pt",
-        )
 
         self.azimuth_values = [f"{i:03d}" for i in range(0, 360, 10)]
         self.elevation_values = ["00", "10", "20", "30", "40", "50", "60"]
@@ -231,13 +220,30 @@ class SchoolDepthDataset(Dataset):
         depth = self.depth_transforms(depth)
         image = self.image_transforms(image)
 
+
+        # Randomly drop prompt with 50% chance
+        if random.random() < 0.5:
+            prompt = ""
+        else:
+            prompt = self.prompt
+
+        inputs = self.tokenizer(
+            prompt,
+            padding="max_length",
+            max_length=self.tokenizer.model_max_length,
+            truncation=True,
+            return_tensors="pt"
+        )
+        input_ids = inputs.input_ids.squeeze(0)
+
         return {
             "pixel_values": image,
             "conditioning_pixel_values": depth,
-            "input_ids": self.inputs.input_ids.squeeze(0),
+            "input_ids": input_ids,
         }
-
+               
     def apply_paired_augmentations(self, cond_img: Image.Image, tgt_img: Image.Image) -> Tuple[Image.Image, Image.Image]:
+        
         if random.random() < 0.5:
             cond_img = T.functional.hflip(cond_img)
             tgt_img = T.functional.hflip(tgt_img)
