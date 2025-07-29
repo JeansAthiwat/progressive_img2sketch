@@ -232,6 +232,7 @@ def render_orbit_with_creases(mesh, line_mesh, lod_meshes, scene_number, lod, ou
             save_path_depth = os.path.join(save_dir_depth, filename)
             # 1) fill zero‐depth (misses) with farthest valid Z
             valid_mask = depth > 0.0
+            print(f"Valid depth pixels: {valid_mask.sum()} out of {depth.size}")
             max_z = float(depth[valid_mask].max())
             depth_f = depth.copy()
             depth_f[~valid_mask] = max_z
@@ -291,8 +292,8 @@ def line_segments_to_cylinders(vertices, edges, radius=0.001, sections=6):
 # scene_num = 46
 threshold_degrees = 5.0
 angle_thresh = np.deg2rad(threshold_degrees)
-RAW_LOD_DATASET_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals"
-# RAW_LOD_DATASET_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_1000radius_triangulated"
+# RAW_LOD_DATASET_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals"
+RAW_LOD_DATASET_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_1000radius_triangulated"
 
 
 # Step 4: Render together with the mesh
@@ -300,7 +301,7 @@ AZIMUTH_STEP = 10
 ELEVATIONS = [0,10,20,30,40,50,60] # [30]
 OUTPUT_ROOT = "/home/athiwat/progressive_img2sketch/resources/LOD50_opaque_normalized_1radius_triangulated_fix_normals_orbits_with_depth"  # customize this
 
-SCENES = range(0, 51)  # Assuming scenes are numbered from 0 to 50 inclusive
+SCENES = range(48, 51)  # Assuming scenes are numbered from 0 to 50 inclusive
 LODS = [1, 2]
 
 for scene_num in SCENES:
@@ -316,6 +317,8 @@ for scene_num in SCENES:
             else loaded
         )
         lod_meshes[lod] = lod_mesh
+        
+    print(f"Loaded LOD meshes for scene {scene_num}: {list(lod_meshes.keys())}")
 
     # ─── 2. Align meshes ──────────────────────────────────────────────
     # aligned_meshes = align_lods_1_2_only(lod_meshes, center_before=True, samples=4000)

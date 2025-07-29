@@ -14,7 +14,7 @@ ALLOWED_LODS=(lod1 lod2)
 
 mkdir -p "$OUTPUT_DIR"
 
-for scene in $(seq 0 50); do
+for scene in $(seq 48 50); do
   in_scene="${INPUT_DIR}/${scene}"
   [ -d "$in_scene" ] || { echo "Skipping scene ${scene} (not found)"; continue; }
 
