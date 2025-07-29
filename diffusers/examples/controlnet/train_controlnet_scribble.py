@@ -43,7 +43,7 @@ from diffusers.utils.hub_utils import load_or_create_model_card, populate_model_
 from diffusers.utils.import_utils import is_xformers_available
 from diffusers.utils.torch_utils import is_compiled_module
 
-from dataset_builder import SchoolScribbleDataset
+from dataset_builder import SchoolRasterSketchDataset
 
 
 if is_wandb_available():
@@ -693,6 +693,7 @@ def make_train_dataset(args, tokenizer, accelerator):
             transforms.Resize(args.resolution, interpolation=transforms.InterpolationMode.BILINEAR),
             transforms.CenterCrop(args.resolution),
             transforms.ToTensor(),
+            
         ]
     )
 
@@ -920,10 +921,9 @@ def main(args):
         eps=args.adam_epsilon,
     )
 
-    train_dataset = BuildingSketchDataset(
-        data_root=args.train_data_dir, 
-        resolution=args.resolution, 
-        pair_from_to=(2,1),
+    train_dataset = SchoolRasterSketchDataset(
+        tokenizer=tokenizer,
+        pair_from_to=(2, 1),
         augment=True
     )
 
